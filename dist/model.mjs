@@ -1,0 +1,3 @@
+export function validatePost(p){if(!p.name?.trim()||!p.title?.trim()||!p.story?.trim())throw Error('Vui lòng điền đầy đủ thông tin.');if(!Number.isFinite(p.amount)||p.amount<1000||p.amount>1e12)throw Error('Số nợ phải từ 1.000 đến 1.000.000.000.000 ₫.');return p;}
+export function commitment(p,value){if(!Number.isFinite(value)||value<=0||value>p.amount-p.pledged)throw Error('Số cam kết phải lớn hơn 0 và không vượt phần còn lại.');return {...p,pledged:p.pledged+value};}
+export function filterPosts(posts,{category='Tất cả',query='',skipped=[]}={}){const q=query.toLocaleLowerCase('vi');return posts.filter(p=>!skipped.includes(p.id)&&(category==='Tất cả'||p.category===category)&&`${p.name} ${p.title} ${p.story}`.toLocaleLowerCase('vi').includes(q));}
