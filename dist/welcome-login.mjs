@@ -23,9 +23,9 @@ export function initWelcomeLogin(onLogin) {
     mode = next;
     const login = mode === 'login';
     const verify = mode === 'verify';
-    title.textContent = login ? 'Đã có tài khoản?' : 'Tạo hoặc đặt lại mật khẩu';
-    submit.textContent = {login: 'Đăng nhập', request: 'Gửi mã xác nhận', verify: 'Lưu mật khẩu và đăng nhập'}[mode];
-    toggle.textContent = login ? 'Tạo hoặc đặt lại mật khẩu' : 'Quay lại đăng nhập';
+    title.textContent = {login: 'Đã có tài khoản?', request: 'Quên mật khẩu?', verify: 'Đặt mật khẩu mới'}[mode];
+    submit.textContent = {login: 'Đăng nhập', request: 'Gửi mã qua email', verify: 'Lưu mật khẩu và đăng nhập'}[mode];
+    toggle.textContent = login ? 'Quên mật khẩu?' : 'Quay lại đăng nhập';
     email.readOnly = verify;
     codeField.hidden = code.disabled = !verify;
     code.required = verify;
@@ -36,7 +36,11 @@ export function initWelcomeLogin(onLogin) {
     passwordLabel.textContent = verify ? 'Mật khẩu mới (ít nhất 8 ký tự)' : 'Mật khẩu';
     code.value = password.value = '';
     setMessage(error, '');
-    setMessage(status, verify ? 'Nếu email đã đăng ký, bạn sẽ nhận được mã xác nhận có hiệu lực trong 10 phút.' : '');
+    setMessage(status, {
+      login: '',
+      request: 'Nhập email đã đăng ký để nhận mã xác nhận.',
+      verify: 'Nếu email đã đăng ký, hãy kiểm tra hộp thư và nhập mã 6 chữ số trong vòng 10 phút.',
+    }[mode]);
   }
 
   toggle.addEventListener('click', () => {

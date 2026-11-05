@@ -27,5 +27,14 @@ test('email passwords require a dedicated verification code and preserve the acc
  assert.equal(verified.user.id,first.user.id);
  assert.equal(await s.auth.session(first.token),null);
  await assert.rejects(s.auth.verify(setupCode.id,s.code,'other-password'));
- assert.equal((await login('new-password')).user.role,'Bros');
+ const session=await login('new-password');
+ assert.equal(session.user.role,'Bros');
+
+ s.advance(61000);
+ const resetCode=await s.auth.request({email:person.email,purpose:'password'});
+ const reset=await s.auth.verify(resetCode.id,s.code,'replacement-password');
+ assert.equal(reset.user.id,first.user.id);
+ assert.equal(await s.auth.session(session.token),null);
+ await assert.rejects(login('new-password'),/Email hoặc mật khẩu/);
+ assert.equal((await login('replacement-password')).user.id,first.user.id);
 });
