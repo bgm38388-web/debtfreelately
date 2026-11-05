@@ -1,7 +1,10 @@
 #how-it-works{display:none;color:#344b32;background:#f8f6ee;padding:24px 28px 56px;scroll-margin-top:24px}
-.onboarding #how-it-works{display:block}
+.onboarding #how-it-works:target{display:block}
+.onboarding:has(#how-it-works:target) #welcome{display:none}
+#how-it-works .hiw-home{color:#344b32;font-size:13px;text-decoration:none;white-space:nowrap}
+#how-it-works .hiw-home:hover{text-decoration:underline;text-underline-offset:4px}
 #how-it-works .hiw-shell{max-width:1040px;margin:0 auto;background:#f3f1e8;border:1px solid #ecebdf;border-radius:30px;padding:24px}
-#how-it-works .hiw-brand-row{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:28px;border-bottom:1px solid #d9decf}
+#how-it-works .hiw-brand-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;padding-bottom:28px;border-bottom:1px solid #d9decf}
 #how-it-works .hiw-brand-row img{width:190px;height:auto;display:block}
 #how-it-works .hiw-brand-row>span{font-size:11px;color:#65765f;white-space:nowrap;letter-spacing:.4px}
 #how-it-works .hiw-heading{text-align:center;padding:40px 14px 28px}
