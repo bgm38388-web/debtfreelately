@@ -2,13 +2,20 @@
   "name": "debtfreelately",
   "private": true,
   "type": "module",
-  "engines": {"node": "24.x"},
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "test": "node --test",
     "db:migrate-local": "node --env-file=.env.local scripts/migrate-local.mjs"
   },
   "dependencies": {
-    "@libsql/client": "^0.18.0"
+    "@libsql/client": "^0.18.0",
+    "@vercel/blob": "^2.8.2",
+    "sharp": "^0.35.5"
+  },
+  "overrides": {
+    "zod": "^4.6.6"
   }
 }

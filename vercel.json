@@ -4,8 +4,10 @@
   "buildCommand": "npm test",
   "outputDirectory": "dist",
   "regions": ["hnd1"],
-  "functions": {"api/index.js": {"maxDuration": 60}},
+  "functions": {"api/index.js": {"maxDuration": 60, "includeFiles": "dist/**"}},
   "rewrites": [
+    {"source": "/:path*", "has": [{"type": "host", "value": "debtfreelately-info.vercel.app"}], "destination": "/api/index"},
+    {"source": "/ads-preview", "destination": "/api/index"},
     {"source": "/api/:path*", "destination": "/api/index"},
     {"source": "/admin", "destination": "/admin.html"},
     {"source": "/my-cards", "destination": "/my-cards.html"}
@@ -13,8 +15,9 @@
   "headers": [
     {"source": "/(.*)", "headers": [
       {"key": "X-Content-Type-Options", "value": "nosniff"},
-      {"key": "Referrer-Policy", "value": "same-origin"},
-      {"key": "X-Frame-Options", "value": "DENY"}
-    ]}
-  ]
+      {"key": "Referrer-Policy", "value": "same-origin"}
+    ]},
+    {"source": "/((?!ads-preview$).*)", "headers": [{"key": "X-Frame-Options", "value": "DENY"}]}
+  ],
+  "crons": [{"path": "/api/ads/cleanup", "schedule": "0 16 * * *"}]
 }

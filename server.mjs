@@ -1,18 +1,19 @@
 import http from 'node:http';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {createAuth,sendVerification} from './auth.mjs';
-import {createModeration} from './moderation.mjs';
 import {fraudSignals} from './fraud.mjs';
+import {createAdvertisingRoutes} from './advertising-http.mjs';
+import {createRuntime} from './runtime.mjs';
 const root=path.resolve(import.meta.dirname,'dist');
-export function createRequestHandler({auth,moderation,origin='http://127.0.0.1:4173'}){
+export function createRequestHandler({auth,moderation,advertising,adStorage,origin='http://127.0.0.1:4173',env=process.env}){
+const adsRoute=createAdvertisingRoutes({auth,moderation,advertising,adStorage,origin,env});
 const secure=new URL(origin).protocol==='https:';
 const cookie=token=>`dfl_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${token?86400:0}${secure?'; Secure':''}`;
 const token=req=>(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('dfl_session='))?.slice(12);
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req,max=8192){if(req.body!==undefined){const raw=typeof req.body==='string'||Buffer.isBuffer(req.body)?req.body:JSON.stringify(req.body);if(Buffer.byteLength(raw)>max)throw Error('Yêu cầu quá dài.');return JSON.parse(raw.toString());}const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw Error('Yêu cầu quá dài.');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
-return async(req,res)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');try{const pathname=decodeURIComponent(new URL(req.url,origin).pathname);if(pathname.startsWith('/api/')){
+return async(req,res)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');try{if(await adsRoute(req,res))return;const pathname=decodeURIComponent(new URL(req.url,origin).pathname);if(pathname.startsWith('/api/')){
 if(req.method==='GET'&&pathname==='/api/auth/config')return json(res,200,{emailConfigured:Boolean(process.env.RESEND_API_KEY&&process.env.AUTH_FROM_EMAIL)});
 if(req.method==='GET'&&pathname==='/api/auth/me'){const user=(await auth.session(token(req)));return json(res,user?200:401,user?{user:{...user,isAdmin:(await moderation.isAdmin(user))}}:{error:'Vui lòng đăng nhập và xác minh email.'});}
 if(req.method==='GET'&&pathname==='/api/cards')return json(res,200,{cards:(await moderation.publicCards((await auth.blockedAccountIds())))});
@@ -39,10 +40,8 @@ if(!['GET','HEAD'].includes(req.method)){res.writeHead(405).end();return;}const 
 }
 export function createAppServer(options){return http.createServer(createRequestHandler(options));}
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
- const runtime=path.resolve(import.meta.dirname,'.runtime');await mkdir(runtime,{recursive:true});
- const auth=await createAuth({database:path.join(runtime,'accounts.sqlite'),send:sendVerification});
- const moderation=await createModeration({database:path.join(runtime,'cards.sqlite'),adminEmails:(process.env.ADMIN_EMAILS||'').split(',')});
- const server=createAppServer({auth,moderation,origin:process.env.APP_ORIGIN||'http://127.0.0.1:4173'});
- server.listen(4173,'127.0.0.1',()=>console.log('http://127.0.0.1:4173'));
- function shutdown(){server.close(async ()=>{(await auth.close());(await moderation.close());process.exit(0);});}process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
+ const services=await createRuntime(),origin=process.env.APP_ORIGIN||'http://127.0.0.1:4173';
+ const server=createAppServer({...services,origin});
+ server.listen(Number(process.env.PORT)||4173,'127.0.0.1',()=>console.log(origin));
+ function shutdown(){server.close(async ()=>{await services.auth.close();await services.moderation.close();await services.advertising.close();process.exit(0);});}process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
 }

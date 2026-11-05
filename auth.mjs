@@ -121,7 +121,7 @@ export async function createAuth({database,send,now=Date.now}){
   },
   async session(token){await clean();if(!token)return null;const session=await db.prepare('SELECT account FROM sessions WHERE hash=? AND expires>?').get(hash(token),now());if(!session)return null;await active(session.account);const account=await db.prepare('SELECT * FROM accounts WHERE id=?').get(session.account);if(account)return user(account);const nick=await db.prepare('SELECT * FROM nicknames WHERE id=?').get(session.account);return nick?nickUser(nick):null;},
   async logout(token){if(token)await db.prepare('DELETE FROM sessions WHERE hash=?').run(hash(token));},
-  allowRequest:ip=>consumeLimit(db,'http:'+String(ip),{now:now(),windowMs:3600000,maximum:40}),
+  allowRequest:(ip,{maximum=40}={})=>consumeLimit(db,'http:'+String(ip),{now:now(),windowMs:3600000,maximum}),
   close:()=>db.close()
  };
 }
