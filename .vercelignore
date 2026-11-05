@@ -1,0 +1,9 @@
+.git
+.runtime
+.superpowers
+.env
+.env.*
+node_modules
+docs
+src
+.openai

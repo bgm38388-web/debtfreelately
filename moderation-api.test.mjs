@@ -4,12 +4,12 @@ import {createAuth} from './auth.mjs';
 import {createModeration} from './moderation.mjs';
 import {createAppServer} from './server.mjs';
 test('HTTP moderation protects admin routes and publishes only approved private-safe cards',async t=>{
- let lastCode;const auth=createAuth({database:':memory:',send:async({code})=>{lastCode=code;}}),moderation=createModeration({database:':memory:',adminEmails:['admin@example.com']});
+ let lastCode;const auth=(await createAuth({database:':memory:',send:async({code})=>{lastCode=code;}})),moderation=(await createModeration({database:':memory:',adminEmails:['admin@example.com']}));
  const server=createAppServer({auth,moderation,origin:'http://127.0.0.1'});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- t.after(async()=>{await new Promise(resolve=>server.close(resolve));auth.close();moderation.close();});
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));(await auth.close());(await moderation.close());});
  const base='http://127.0.0.1:'+server.address().port;
  async function request(path,{token,method='GET',data,origin='http://127.0.0.1'}={}){const r=await fetch(base+path,{method,headers:{...(token?{Cookie:'dfl_session='+token}:{}),...(method==='POST'?{'Content-Type':'application/json',Origin:origin}:{})},body:data?JSON.stringify(data):undefined});return {status:r.status,data:await r.json()};}
- async function account(email){const pending=await auth.request({purpose:'signup',email,name:'Private owner',gender:'other',age:25,phone:'+84912345678',role:'Broke'});return auth.verify(pending.id,lastCode).token;}
+ async function account(email){const pending=await auth.request({purpose:'signup',email,name:'Private owner',gender:'other',age:25,phone:'+84912345678',role:'Broke'});return (await auth.verify(pending.id,lastCode)).token;}
  const owner=await account('owner@example.com'),admin=await account('admin@example.com');
  assert.equal((await request('/api/admin/cards')).status,401);
  assert.equal((await request('/api/admin/cards',{token:owner})).status,403);

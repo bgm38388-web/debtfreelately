@@ -13,15 +13,21 @@ Until configured, `/api/auth/config` reports `emailConfigured: false`; the form 
 
 ## Storage and limits
 
-- Accounts and hashed session tokens: server-only SQLite at `.runtime/accounts.sqlite`, excluded from Git and static serving. Personal account details are stored locally in this file; protect filesystem access and backups. This is a local integration, not a production hosting setup.
-- OTP digest, salt and pending registration details: memory only, expire after 10 minutes. Restarting the server invalidates pending codes.
-- Five verification guesses per challenge, 60-second send cooldown, five email requests per address/hour and 40 auth POSTs per IP/hour. Single-process limits reset on restart.
+- Local development uses server-only SQLite at `.runtime/accounts.sqlite`, excluded from Git and static serving. Vercel uses the connected Turso database. Protect database access and backups.
+- OTP digest, salt and pending registration details are stored in the database and expire after 10 minutes. Verification is transactional and cannot replay a consumed OTP.
+- Five verification guesses per challenge, 60-second send cooldown, five email requests per address/hour and 40 auth POSTs per IP/hour. Limits persist and are shared by deployed instances.
 - Session lasts 24 hours; HttpOnly, SameSite=Strict; Secure when `APP_ORIGIN` is HTTPS. Origin validation for POST routes. Only a name, email and account ID are returned by `/api/auth/me`.
 - Core account tests use an isolated in-memory database and injected test mail delivery. No messages are sent by the test suite.
 
-## Remaining deployment work
+## Vercel deployment
 
-The existing Sites manifest is still a static preview: it cannot run these Node/SQLite API routes. A production release needs compatible server hosting and protected persistent storage, HTTPS, configured transactional email and shared rate limiting. Keep this local build until that is set up. Existing story, dashboard and chat data remains a browser-local prototype and is not a server-backed, account-isolated data store.
+The Vercel configuration serves `dist/` and routes `/api/*` to `api/index.js`, using Node.js 24 in hnd1. The linked Turso database replaces local file storage on Vercel. Configure server-only `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `RESEND_API_KEY`, `AUTH_FROM_EMAIL` and `ADMIN_EMAILS` in Vercel. `APP_ORIGIN` may specify a custom domain; exact deployment and project production domains are also accepted from Vercel system environment variables. POST requests must use the matching Origin. No local database fallback is permitted on Vercel.
+
+OTP challenges, failed verification counts, email cooldowns, password lockouts, sessions and HTTP request limits are shared in Turso. OTP consumption and account creation are transactional. Concurrent duplicate card submissions return one card and cannot exceed the pending-card limit. Cookies are HttpOnly, SameSite=Strict and Secure on HTTPS.
+
+After linking the correct Vercel project, run `vercel env pull .env.local --yes`. `npm run db:migrate-local` imports local accounts, nickname password hashes, profile settings, moderation data and safety records without changing the source files. It is repeatable, aborts on conflicting cloud data, and does not transfer sessions, OTP challenges or temporary rate limits. Back up local files before future imports. `.vercelignore` excludes environment files and local databases from deployment inputs.
+
+Run `npm test`, stage production with `vercel deploy --prod --skip-domain`, verify the staged deployment with `vercel curl`, then promote that tested deployment. Existing story, dashboard and chat prototype data in browser localStorage is not migrated or synchronized between devices.
 
 Live email delivery has not been tested until sender credentials are configured. Email ownership verification does not verify real name, age, phone ownership or debt authenticity.
 
@@ -31,7 +37,7 @@ Bros can register immediately with a unique nickname and password through `/api/
 
 ## Temporary Broke design shortcut
 
-`dist/dev-preview.mjs` exports `BROKE_DESIGN_PREVIEW_ENABLED = true`. The Broke registration page temporarily offers **Bỏ qua đăng ký · Chế độ xây dựng**. It opens the dashboard using a clearly named preview identity; no account, cookie or email verification is created. The choice lasts only in JS memory until reload or logout. Set this constant to `false` to remove the button and preview entry after email setup. The server auth requirements are unchanged.
+`dist/dev-preview.mjs` exports `BROKE_DESIGN_PREVIEW_ENABLED = false`. The design shortcut is disabled for deployment; Broke registration requires email verification.
 
 
 ## Admin moderation

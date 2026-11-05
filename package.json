@@ -2,8 +2,13 @@
   "name": "debtfreelately",
   "private": true,
   "type": "module",
+  "engines": {"node": "24.x"},
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "db:migrate-local": "node --env-file=.env.local scripts/migrate-local.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
   }
 }
