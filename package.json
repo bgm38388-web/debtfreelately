@@ -1,1 +1,9 @@
-{"name":"debtfreelately","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test"}}
+{
+  "name": "debtfreelately",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test"
+  }
+}

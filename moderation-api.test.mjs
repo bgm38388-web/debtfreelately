@@ -1,0 +1,43 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createAuth} from './auth.mjs';
+import {createModeration} from './moderation.mjs';
+import {createAppServer} from './server.mjs';
+test('HTTP moderation protects admin routes and publishes only approved private-safe cards',async t=>{
+ let lastCode;const auth=createAuth({database:':memory:',send:async({code})=>{lastCode=code;}}),moderation=createModeration({database:':memory:',adminEmails:['admin@example.com']});
+ const server=createAppServer({auth,moderation,origin:'http://127.0.0.1'});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));auth.close();moderation.close();});
+ const base='http://127.0.0.1:'+server.address().port;
+ async function request(path,{token,method='GET',data,origin='http://127.0.0.1'}={}){const r=await fetch(base+path,{method,headers:{...(token?{Cookie:'dfl_session='+token}:{}),...(method==='POST'?{'Content-Type':'application/json',Origin:origin}:{})},body:data?JSON.stringify(data):undefined});return {status:r.status,data:await r.json()};}
+ async function account(email){const pending=await auth.request({purpose:'signup',email,name:'Private owner',gender:'other',age:25,phone:'+84912345678',role:'Broke'});return auth.verify(pending.id,lastCode).token;}
+ const owner=await account('owner@example.com'),admin=await account('admin@example.com');
+ assert.equal((await request('/api/admin/cards')).status,401);
+ assert.equal((await request('/api/admin/cards',{token:owner})).status,403);
+ assert.equal((await request('/api/cards/mine')).status,401);
+ const payload={submissionId:crypto.randomUUID(),debts:[{title:'Study',story:'Hidden narrative',amount:10000}],privacy:{}};
+ assert.equal((await request('/api/cards',{method:'POST',data:payload})).status,401);
+ assert.equal((await request('/api/cards',{token:owner,method:'POST',origin:'https://evil.example',data:payload})).status,403);
+ const created=await request('/api/cards',{token:owner,method:'POST',data:payload});assert.equal(created.status,201);assert.equal(created.data.card.status,'pending');
+ assert.deepEqual((await request('/api/cards')).data.cards,[]);
+ const id=created.data.card.id;
+ assert.equal((await request('/api/admin/cards/'+id+'/review',{token:owner,method:'POST',data:{decision:'approved'}})).status,403);
+ assert.equal((await request('/api/admin/cards',{token:admin})).data.cards.length,1);
+ assert.equal((await request('/api/admin/cards/'+id+'/review',{token:admin,method:'POST',data:{decision:'approved'}})).status,200);
+ const published=(await request('/api/cards')).data.cards;assert.equal(published.length,1);assert.equal(published[0].card.debts[0].amount,10000);assert.ok(!JSON.stringify(published).includes('Hidden narrative'));assert.ok(!JSON.stringify(published).includes('owner@example.com'));
+ assert.equal((await request('/api/admin/cards/'+id+'/review',{token:admin,method:'POST',data:{decision:'rejected',reason:'Late decision'}})).status,409);
+ assert.equal((await request('/api/cards/mine',{token:owner})).data.cards[0].status,'approved');
+ assert.equal((await request('/api/admin/members')).status,401);
+ assert.equal((await request('/api/admin/members',{token:owner})).status,403);
+ const delegated=await account('delegate@example.com');
+ assert.equal((await request('/api/admin/members',{token:owner,method:'POST',data:{email:'delegate@example.com'}})).status,403);
+ assert.equal((await request('/api/admin/members',{token:admin,method:'POST',origin:'https://evil.example',data:{email:'delegate@example.com'}})).status,403);
+ assert.equal((await request('/api/admin/members',{token:admin,method:'POST',data:{email:'delegate@example.com'}})).status,200);
+ assert.equal((await request('/api/admin/me',{token:delegated})).data.user.isOwner,false);
+ assert.equal((await request('/api/admin/cards',{token:delegated})).status,200);
+ assert.equal((await request('/api/admin/members',{token:delegated})).status,403);
+ assert.equal((await request('/api/admin/members',{token:delegated,method:'POST',data:{email:'next@example.com'}})).status,403);
+ assert.equal((await request('/api/admin/members/revoke',{token:admin,method:'POST',data:{email:'delegate@example.com'}})).status,200);
+ assert.equal((await request('/api/admin/cards',{token:delegated})).status,403);
+ const maximum={submissionId:crypto.randomUUID(),privacy:{},debts:Array.from({length:20},()=>({title:'Một khoản nợ hợp lệ',story:'ệ'.repeat(3000),amount:1000}))};
+ assert.equal((await request('/api/cards',{token:owner,method:'POST',data:maximum})).status,201);
+});

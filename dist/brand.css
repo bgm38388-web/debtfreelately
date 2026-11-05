@@ -1,0 +1,12 @@
+:root{--ink:#303d2b;--paper:#f8f6ee}
+aside{background:#f8f6ee}
+.brand-logo{display:block;margin:0 -10px;white-space:normal;line-height:0}
+.brand-logo img{display:block;width:100%;height:auto}
+nav{margin-top:26px}
+.logo-hero{width:285px;height:auto;transform:none;flex-shrink:0;margin-left:20px}
+.logo-hero img{width:100%;height:auto;display:block}
+header .header-brand{display:block;width:180px;line-height:0}
+.header-brand img{display:block;width:100%;height:auto}
+@media(max-width:1150px){.logo-hero{width:180px}.brand-logo{margin:0 -8px}}
+@media(max-width:900px){.logo-hero{width:140px}}
+@media(max-width:620px){header .header-brand{width:145px;flex-shrink:0}.logo-hero{display:none}.heading{align-items:flex-start}}

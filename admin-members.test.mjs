@@ -1,0 +1,35 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createModeration} from './moderation.mjs';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+const owner={id:'owner',email:'bgm38388@gmail.com',emailVerified:true};
+const member={id:'member',email:'helper@example.com',emailVerified:true};
+test('only configured owner grants/revokes admins; revocation takes effect on existing sessions',t=>{
+ const m=createModeration({database:':memory:',adminEmails:[owner.email]});t.after(()=>m.close());
+ assert.equal(m.isAdmin(member),false);
+ m.addAdmin(owner,'  HELPER@EXAMPLE.COM  ');
+ assert.equal(m.isAdmin(member),true);assert.equal(m.isOwner(member),false);
+ assert.equal(m.list(member).length,0);
+ assert.throws(()=>m.addAdmin(member,'next@example.com'),/chủ sở hữu/i);
+ assert.throws(()=>m.removeAdmin(member,owner.email),/chủ sở hữu/i);
+ assert.throws(()=>m.adminMembers(member),/chủ sở hữu/i);
+ assert.throws(()=>m.addAdmin({...owner,emailVerified:false},member.email),/chủ sở hữu/i);
+ assert.throws(()=>m.addAdmin(null,member.email),/đăng nhập/i);
+ assert.throws(()=>m.removeAdmin(owner,owner.email),/chủ sở hữu/i);
+ assert.throws(()=>m.addAdmin(owner,'bad-address'),/email/i);
+ assert.throws(()=>m.addAdmin(owner,member.email),/đã có/i);
+ assert.equal(m.isAdmin({...member,emailVerified:false}),false);
+ m.removeAdmin(owner,member.email);
+ assert.equal(m.isAdmin(member),false);assert.throws(()=>m.list(member),/admin/i);
+ assert.equal(m.isAdmin(owner),true);
+});
+test('admin grants persist across restart and owner membership is protected',t=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'dfl-admin-')),database=path.join(dir,'cards.sqlite');let m=createModeration({database,adminEmails:[owner.email]});
+ t.after(()=>{m.close();rmSync(dir,{recursive:true,force:true});});
+ m.addAdmin(owner,member.email);m.close();m=createModeration({database,adminEmails:[owner.email]});
+ assert.equal(m.isAdmin(member),true);assert.equal(m.adminMembers(owner).length,2);
+ assert.equal(m.adminMembers(owner).find(x=>x.email===owner.email).role,'owner');
+ m.removeAdmin(owner,member.email);assert.equal(m.adminMembers(owner).length,1);
+});

@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {remainingSavedCards,savedIdsKey} from './dist/saved-model.mjs';
+test('only the current Bros completed support removes a saved card',()=>{const cards=['a','b','c','d'].map(id=>({id}));const tx=[{cardId:'a',supporterId:'me',status:'completed'},{cardId:'b',supporterId:'other',status:'succeeded'},{cardId:'c',supporterId:'me',status:'pending'},{cardId:'d',supporterId:'me',status:'failed'}];assert.deepEqual(remainingSavedCards(cards,tx,'me').map(c=>c.id),['b','c','d']);});
+test('a support pledge is not a completed payment',()=>{assert.equal(remainingSavedCards([{id:'a'}],[{cardId:'a',supporterId:'me',status:'pledged'}],'me').length,1);assert.notEqual(savedIdsKey('me'),savedIdsKey('other'));});
