@@ -4,6 +4,7 @@ const previewUser={id:'broke-design-preview',name:'Broke · Xây dựng',role:'B
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let signupRole='Broke';let api,mode='signup',requestData=null,challenge=null,configured=false,onSuccess,timer;
 async function call(path,data){const r=await fetch('/api/auth/'+path,{method:data?'POST':'GET',credentials:'same-origin',headers:data?{'Content-Type':'application/json'}:{},body:data?JSON.stringify(data):undefined});const result=await r.json();if(!r.ok)throw Error(result.error||'Không thể kết nối máy chủ.');return result;}
+export {call as authRequest};
 export function initRegistration(callbacks){api=callbacks;const root=document.createElement('section');root.id='registration-page';document.body.append(root);}
 export async function requireRegistration(success,role='Broke'){signupRole=role;onSuccess=success;if(role==='Broke'&&BROKE_DESIGN_PREVIEW_ENABLED&&designPreview){success(previewUser);return;}try{const {user}=await call('me');if(user?.emailVerified){success(user);return;}}catch{}show();}
 async function show(){clearInterval(timer);mode='signup';challenge=null;requestData=null;configured=false;document.body.classList.remove('onboarding','broke-mode','messages-mode','debts-mode');document.body.classList.add('registration-mode');render();try{configured=(await call('config')).emailConfigured;}catch{}if(document.body.classList.contains('registration-mode'))render();window.scrollTo(0,0);}

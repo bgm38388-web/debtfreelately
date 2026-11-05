@@ -10,3 +10,22 @@ test('registration requires email ownership before account/session exists',async
 test('expired codes and repeated wrong guesses cannot create accounts',async()=>{const s=(await setup());let r=await s.auth.request({...person,purpose:'signup'});for(let i=0;i<5;i++)(await assert.rejects(async ()=>(await s.auth.verify(r.id,'not-a-code'))));(await assert.rejects(async ()=>(await s.auth.verify(r.id,s.code))));s.advance(61000);r=await s.auth.request({...person,purpose:'signup'});s.advance(600001);(await assert.rejects(async ()=>(await s.auth.verify(r.id,s.code))));(await s.auth.close());});
 test('invalid details and immediate resend are rejected',async()=>{const s=(await setup());await assert.rejects((s.auth.request({...person,age:0,purpose:'signup'})));await assert.rejects((s.auth.request({...person,email:'invalid',purpose:'signup'})));await s.auth.request({...person,purpose:'signup'});await assert.rejects((s.auth.request({...person,purpose:'signup'})),/60/);(await s.auth.close());});
 test('failed email delivery creates no usable challenge',async()=>{const a=(await createAuth({database:':memory:',send:async()=>{throw Error('delivery failed');}}));await assert.rejects((a.request({...person,purpose:'signup'})));assert.equal((await a.session('test')),null);(await a.close());});
+test('email passwords require a dedicated verification code and preserve the account',async t=>{
+ const s=await setup();
+ t.after(()=>s.auth.close());
+ const signup=await s.auth.request({...person,purpose:'signup',role:'Bros'});
+ const first=await s.auth.verify(signup.id,s.code,'ignored-password');
+ const login=password=>s.auth.emailLogin({email:' AN@example.com ',password});
+ await assert.rejects(login('ignored-password'),/Email hoặc mật khẩu/);
+ s.advance(61000);
+ const setupCode=await s.auth.request({email:person.email,purpose:'password'});
+ const wrongCode=s.code==='000000'?'999999':'000000';
+ await assert.rejects(s.auth.verify(setupCode.id,wrongCode,'new-password'),/Mã xác nhận/);
+ await assert.rejects(login('new-password'),/Email hoặc mật khẩu/);
+ await assert.rejects(s.auth.verify(setupCode.id,s.code,'short'),/Mật khẩu/);
+ const verified=await s.auth.verify(setupCode.id,s.code,'new-password');
+ assert.equal(verified.user.id,first.user.id);
+ assert.equal(await s.auth.session(first.token),null);
+ await assert.rejects(s.auth.verify(setupCode.id,s.code,'other-password'));
+ assert.equal((await login('new-password')).user.role,'Bros');
+});

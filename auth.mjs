@@ -1,10 +1,13 @@
 import {randomBytes,randomInt,createHash,timingSafeEqual,scryptSync} from 'node:crypto';
 import {openDatabase,consumeLimit,rateSchema} from './database.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
+const normalizeEmail=value=>typeof value==='string'?value.trim().toLowerCase():'';
+const validEmail=email=>email.length<=254&&/^\S+@[^\s@]+\.[^\s@]+$/.test(email);
 export async function createAuth({database,send,now=Date.now}){
  const db=openDatabase(database);
  await db.exec(`CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,details TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY,account TEXT NOT NULL,expires INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS email_passwords (account TEXT PRIMARY KEY,salt TEXT NOT NULL,password TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS nicknames (id TEXT PRIMARY KEY,nickname TEXT NOT NULL,key TEXT NOT NULL UNIQUE,salt TEXT NOT NULL,password TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS profile_settings (account TEXT PRIMARY KEY,data TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS account_blocks (account TEXT PRIMARY KEY,reason TEXT NOT NULL,actor TEXT NOT NULL,created_at INTEGER NOT NULL);
@@ -64,19 +67,34 @@ export async function createAuth({database,send,now=Date.now}){
    if(!row||!timingSafeEqual(digest,Buffer.from(row.password,'hex')))throw Error('Biệt danh hoặc mật khẩu không đúng.');
    return db.transaction(async tx=>{await tx.prepare('DELETE FROM rate_windows WHERE key=?').run('login:'+key);return makeSession(await nickUser(row,tx),tx);});
   },
+  async emailLogin(input){
+   await clean();
+   const email=normalizeEmail(input.email),error='Email hoặc mật khẩu không đúng.';
+   if(!validEmail(email)||typeof input.password!=='string'||input.password.length>128)throw Error(error);
+   const key='email-login:'+email;
+   if(!await consumeLimit(db,key,{now:now(),windowMs:900000,maximum:5}))throw Error('Đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.');
+   return db.transaction(async tx=>{
+    const row=await tx.prepare('SELECT accounts.*,email_passwords.salt,email_passwords.password FROM accounts JOIN email_passwords ON email_passwords.account=accounts.id WHERE email=?').get(email);
+    const digest=scryptSync(input.password,row?.salt||'missing-account-salt',64);
+    if(!row||!timingSafeEqual(digest,Buffer.from(row.password,'hex')))throw Error(error);
+    await tx.prepare('DELETE FROM rate_windows WHERE key=?').run(key);
+    return makeSession(await user(row,tx),tx);
+   });
+  },
   async request(input){
-   await clean();const email=typeof input.email==='string'?input.email.trim().toLowerCase():'';
-   if(email.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Địa chỉ email không hợp lệ.');
-   if(!['signup','login'].includes(input.purpose))throw Error('Yêu cầu không hợp lệ.');
+   await clean();const email=normalizeEmail(input.email);
+   if(!validEmail(email))throw Error('Địa chỉ email không hợp lệ.');
+   if(!['signup','login','password'].includes(input.purpose))throw Error('Yêu cầu không hợp lệ.');
    const existing=await db.prepare('SELECT * FROM accounts WHERE email=?').get(email);let details;
    if(input.purpose==='signup'){const age=Number(input.age),name=String(input.name||'').trim(),phone=String(input.phone||'').replace(/[\s().-]/g,'');if(name.length<2||name.length>100||!['male','female','other','undisclosed'].includes(input.gender)||!Number.isInteger(age)||age<1||age>120||!/^\+?\d{8,15}$/.test(phone))throw Error('Vui lòng kiểm tra tên thật, giới tính, tuổi và số điện thoại.');details={name,gender:input.gender,age,phone,role:input.role==='Bros'?'Bros':'Broke'};}
+   if(input.purpose==='password')details={setPassword:true};
    if(!await consumeLimit(db,'email:'+email,{now:now(),windowMs:3600000,maximum:5,cooldownMs:60000}))throw Error('Vui lòng đợi 60 giây trước khi yêu cầu mã mới hoặc thử lại sau một giờ.');
    const id=randomBytes(24).toString('hex'),salt=randomBytes(24).toString('hex'),code=String(randomInt(100000,1000000)),valid=input.purpose==='signup'||Boolean(existing);
    if(valid)await send({email,code});
    await db.transaction(async tx=>{await tx.prepare('DELETE FROM auth_challenges WHERE email=?').run(email);await tx.prepare('INSERT INTO auth_challenges VALUES (?,?,?,?,?,?,?,?)').run(id,email,details?JSON.stringify(details):null,salt,hash(salt+code),now()+600000,0,valid?1:0);});
    return {id,expiresIn:600,resendAfter:60};
   },
-  async verify(id,code){
+  async verify(id,code,password){
    await clean();
    // Failed guesses must commit their attempt count rather than roll it back.
    const outcome=await db.transaction(async tx=>{
@@ -84,9 +102,19 @@ export async function createAuth({database,send,now=Date.now}){
     if(!p)return {error:'Mã đã hết hạn hoặc không hợp lệ. Hãy yêu cầu mã mới.'};
     if(p.expires<=now()){await tx.prepare('DELETE FROM auth_challenges WHERE id=?').run(id);return {error:'Mã đã hết hạn hoặc không hợp lệ. Hãy yêu cầu mã mới.'};}
     const ok=timingSafeEqual(Buffer.from(hash(p.salt+String(code))),Buffer.from(p.digest))&&Boolean(p.valid);
+    const setPassword=ok&&JSON.parse(p.details)?.setPassword===true;
+    if(setPassword&&(typeof password!=='string'||password.length<8||password.length>128))return {error:'Mật khẩu phải có 8–128 ký tự.'};
     if(p.attempts+1>=5||ok)await tx.prepare('DELETE FROM auth_challenges WHERE id=?').run(id);else await tx.prepare('UPDATE auth_challenges SET attempts=attempts+1 WHERE id=?').run(id);
     if(!ok)return {error:'Mã xác nhận không đúng. Bạn có tối đa 5 lần thử.'};
     let row=await tx.prepare('SELECT * FROM accounts WHERE email=?').get(p.email);
+    if(setPassword){
+     if(!row)return {error:'Tài khoản không tồn tại.'};
+     try{await active(row.id,tx);}catch(error){if(error.status===403)return {error:error.message,status:403};throw error;}
+     const salt=randomBytes(24).toString('hex'),digest=scryptSync(password,salt,64).toString('hex');
+     await tx.prepare('INSERT INTO email_passwords (account,salt,password) VALUES (?,?,?) ON CONFLICT(account) DO UPDATE SET salt=excluded.salt,password=excluded.password').run(row.id,salt,digest);
+     await tx.prepare('DELETE FROM sessions WHERE account=?').run(row.id);
+     await tx.prepare('DELETE FROM rate_windows WHERE key=?').run('email-login:'+p.email);
+    }
     if(!row){const accountId=randomBytes(20).toString('hex');await tx.prepare('INSERT INTO accounts VALUES (?,?,?)').run(accountId,p.email,p.details);row=await tx.prepare('SELECT * FROM accounts WHERE id=?').get(accountId);}
     try{return {result:await makeSession(await user(row,tx),tx)};}catch(error){if(error.status===403)return {error:error.message,status:403};throw error;}
    });if(outcome.error)throw Object.assign(Error(outcome.error),{status:outcome.status||400});return outcome.result;

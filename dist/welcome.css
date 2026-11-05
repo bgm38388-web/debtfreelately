@@ -22,3 +22,17 @@ body.onboarding>aside,body.onboarding>.main{display:none}
 .choose-role{font-size:10px;border:1px solid #dce0d2;border-radius:7px;padding:9px 12px;background:transparent;white-space:nowrap}
 @media(max-width:620px){#welcome{padding:32px 22px 76px}.welcome-brand{font-size:26px}.welcome-brand img{width:96px;height:96px}.welcome-content{padding:35px 0 0}.welcome-kicker{font-size:7px;letter-spacing:1.8px}#welcome h1{font-size:29px;letter-spacing:-1px;margin-bottom:28px}.role-options{gap:12px}.role-card{padding:22px 18px;min-height:200px;border-radius:16px}.role-card strong{font-size:28px}.role-symbol{width:43px;height:43px;margin-bottom:20px}.role-caption{font-size:11px}.role-arrow{right:15px;bottom:16px;font-size:19px}.welcome-footer{font-size:7px;width:calc(100% - 44px)}.choose-role{padding:8px;font-size:8px}header>div{gap:6px}header .header-brand{width:115px}header .dark{font-size:8px;padding:10px 8px}}
 @media(prefers-reduced-motion:reduce){.role-card{transition:none}}
+.welcome-login{display:grid;gap:10px;width:min(100%,360px);margin:22px auto 0;padding:18px 20px;border:1px solid #dce0d2;border-radius:16px;background:#fffef9;color:#303d2b;text-align:left}
+.welcome-login h2{font-size:16px;margin:0 0 4px}
+.welcome-login label{display:block;font-size:13px;font-weight:600}
+.welcome-login label+input{margin-top:4px}
+.welcome-login>label+input{margin-top:-6px}
+.welcome-login input{width:100%;min-height:40px;padding:8px 10px;border:1px solid #c3cbbb;border-radius:8px;background:#fff;color:inherit;font:inherit;font-size:16px}
+.welcome-login button{min-height:38px;border-radius:8px;font-size:13px;font-weight:600}
+.welcome-login-submit{background:#35492e;color:#fff}
+.welcome-login-submit:disabled{opacity:.6}
+.welcome-login-link{background:transparent;color:#35492e;text-decoration:underline}
+.welcome-login p{font-size:13px;margin:0}
+#welcome-login-error{color:#a22626}
+.welcome-login :focus-visible{outline:2px solid #49623b;outline-offset:2px}
+@media(max-width:620px){.welcome-footer{flex-wrap:wrap;justify-content:center;gap:8px 16px}}

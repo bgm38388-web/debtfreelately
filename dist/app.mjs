@@ -1,4 +1,5 @@
 import {refreshAdminNavigation} from './admin-navigation.mjs';
+import {initWelcomeLogin} from './welcome-login.mjs';
 import {initMemberNotifications} from './member-notifications.mjs';
 import {initHowItWorks} from './how-it-works.mjs';
 import {discoverIntro,discoverCommunity,discoveryCard,di} from './discover-design.mjs';
@@ -65,6 +66,15 @@ initRegistration({back:showWelcome,toast});
 
 function postForm(id){requireRegistration(user=>{state.role='Broke';view='mine';persist();render();if(document.body.classList.contains('debts-mode'))showDebts();else displayBroke(user);renderPostForm(id);});}
 function enterBros(user){activateSavedAccount(user.id);state.role='Bros';view='discover';persist();render();hideBroke();document.body.classList.remove('onboarding','registration-mode','bros-join-mode','messages-mode','debts-mode','card-wizard-mode');window.scrollTo(0,0);$('#role-name').textContent=user.name;}
+initWelcomeLogin(user=>{
+ if(user.role==='Bros'){enterBros(user);return;}
+ activateSavedAccount(user.id);
+ state.role='Broke';
+ view='mine';
+ persist();
+ render();
+ displayBroke(user);
+});
 function showBros(){showBrosJoin(enterBros);}
 initBrosJoin({back:showWelcome,toast,full:callback=>requireRegistration(callback,'Bros')});
 $('#logout-nav').onclick=logoutRegistration;
