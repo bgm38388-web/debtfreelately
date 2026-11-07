@@ -53,6 +53,7 @@ const serviceErrors = new Map([
 const debtErrors = new Map([
   ['nhập tiêu đề từ 1–100 ký tự.', ['Enter a title with 1–100 characters.', '제목을 1~100자로 입력해 주세요.']],
   ['nhập câu chuyện từ 1–3.000 ký tự.', ['Enter a story with 1–3,000 characters.', '이야기를 1~3,000자로 입력해 주세요.']],
+  ['nhập số tiền hợp lệ cho đơn vị tiền tệ đã chọn.', ['Enter a valid amount for the selected currency.', '선택한 통화에 맞는 금액을 입력해 주세요.']],
   ['nhập số tiền nợ nguyên dương, tối đa 1.000 tỷ VNĐ.', ['Enter a positive whole amount, up to ₫1 trillion.', '부채 금액은 1조 동 이하의 양의 정수로 입력해 주세요.']],
 ]);
 

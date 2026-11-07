@@ -1,3 +1,4 @@
+import {readRates} from './exchange-rates.mjs';
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +17,10 @@ async function body(req,max=8192){if(req.body!==undefined){const raw=typeof req.
 return async(req,res)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');try{if(await adsRoute(req,res))return;const pathname=decodeURIComponent(new URL(req.url,origin).pathname);if(pathname.startsWith('/api/')){
 if(req.method==='GET'&&pathname==='/api/auth/config')return json(res,200,{emailConfigured:Boolean(process.env.RESEND_API_KEY&&process.env.AUTH_FROM_EMAIL)});
 if(req.method==='GET'&&pathname==='/api/auth/me'){const user=(await auth.session(token(req)));return json(res,user?200:401,user?{user:{...user,isAdmin:(await moderation.isAdmin(user))}}:{error:'Vui lòng đăng nhập và xác minh email.'});}
+if(req.method==='GET'&&pathname==='/api/exchange-rates'){
+ try{return json(res,200,await readRates());}
+ catch{return json(res,503,{error:'Tạm thời chưa lấy được tỷ giá.'});}
+}
 if(req.method==='GET'&&pathname==='/api/cards')return json(res,200,{cards:(await moderation.publicCards((await auth.blockedAccountIds())))});
 if(req.method==='GET'&&pathname==='/api/notifications'){const user=(await auth.session(token(req)));return user?json(res,200,{notifications:(await auth.notifications(user.id))}):json(res,401,{error:'Vui lòng đăng nhập.'});}
 if(req.method==='GET'&&(pathname==='/api/admin/fraud'||pathname==='/api/admin/users'||/^\/api\/admin\/users\/[^/]+\/history$/.test(pathname))){const user=(await auth.session(token(req)));if(!(await moderation.isAdmin(user)))return json(res,user?403:401,{error:'Chỉ admin mới được truy cập.'});const accounts=(await auth.memberDirectory());if(pathname==='/api/admin/fraud'){const submissions=(await moderation.reviewData(user)),signals=fraudSignals({accounts,submissions});return json(res,200,{signals:signals.map(s=>({...s,members:s.accountIds.map(id=>accounts.find(a=>a.id===id)).filter(Boolean).map(a=>({id:a.id,name:a.name,email:a.email,blocked:a.blocked}))})),documentAnalysis:'unavailable',checkedAt:new Date().toISOString()});}if(pathname.endsWith('/history'))return json(res,200,{events:(await auth.safetyHistory(pathname.split('/')[4]))});const query=(new URL(req.url,origin).searchParams.get('q')||'').trim().toLocaleLowerCase('vi').slice(0,100);const blockedOnly=new URL(req.url,origin).searchParams.get('blocked')==='1';return json(res,200,{users:(await Promise.all(accounts.filter(a=>!blockedOnly||a.blocked).filter(a=>[a.name,a.nickname,a.email,a.id].some(value=>String(value||'').toLocaleLowerCase('vi').includes(query))).slice(0,100).map(async a=>({...a,protected:(await moderation.isAdmin({...a,emailVerified:Boolean(a.email)}))}))))});}
