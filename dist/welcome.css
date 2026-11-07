@@ -36,3 +36,8 @@ body.onboarding>aside,body.onboarding>.main{display:none}
 #welcome-login-error{color:#a22626}
 .welcome-login :focus-visible{outline:2px solid #49623b;outline-offset:2px}
 @media(max-width:620px){.welcome-footer{flex-wrap:wrap;justify-content:center;gap:8px 16px}}
+
+.welcome-login-disclosure{margin:22px auto 0}
+.welcome-login-disclosure summary{width:fit-content;margin:auto;padding:9px 16px;border:1px solid #c3cbbb;border-radius:8px;color:#35492e;font-size:13px;font-weight:600;cursor:pointer}
+.welcome-login-disclosure summary:focus-visible{outline:2px solid #49623b;outline-offset:2px}
+.welcome-login-disclosure .welcome-login{margin-top:12px}
