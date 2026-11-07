@@ -1,3 +1,4 @@
+import {isProfilePhoto} from './dist/profile-photo.mjs';
 import {randomBytes,randomInt,createHash,timingSafeEqual,scryptSync} from 'node:crypto';
 import {openDatabase,consumeLimit,rateSchema} from './database.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
@@ -22,7 +23,10 @@ export async function createAuth({database,send,now=Date.now}){
  function safetyText(value){if(typeof value!=='string'||!value.trim()||value.trim().length>1000)throw Error('Nhập nội dung từ 1 đến 1.000 ký tự.');return value.trim();}
  const audit=(connection,account,action,reason,actor)=>connection.prepare('INSERT INTO safety_events VALUES (?,?,?,?,?,?)').run(randomBytes(20).toString('hex'),account,action,reason,actor,now());
  async function settings(id,connection=db){return JSON.parse((await connection.prepare('SELECT data FROM profile_settings WHERE account=?').get(id))?.data||'{}');}
- async function user(row,connection=db){if(!row)return null;const d=JSON.parse(row.details);return {id:row.id,email:row.email,name:d.name,age:d.age,nickname:'Broke_'+row.id.slice(0,6),role:d.role||'Broke',emailVerified:true,phone:d.phone,...await settings(row.id,connection)};}
+ async function saveSignupPhoto(connection,id,photo){
+  if(photo)await connection.prepare('INSERT INTO profile_settings VALUES (?,?)').run(id,JSON.stringify({photo}));
+ }
+ async function user(row,connection=db){if(!row)return null;const d=JSON.parse(row.details);return {id:row.id,email:row.email,name:d.name,age:d.age,gender:d.gender,nickname:'Broke_'+row.id.slice(0,6),role:d.role||'Broke',emailVerified:true,phone:d.phone,...await settings(row.id,connection)};}
  const nickUser=async(row,connection=db)=>({id:row.id,name:row.nickname,role:'Bros',accountType:'nickname',emailVerified:false,...await settings(row.id,connection)});
  async function makeSession(u,connection=db){await active(u.id,connection);const token=randomBytes(32).toString('hex');await connection.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token),u.id,now()+86400000);return {token,user:u};}
  function nickname(value){const name=String(value||'').normalize('NFKC').trim();if(!/^[\p{L}\p{N}_.-]{3,30}$/u.test(name))throw Error('Biệt danh phải có 3–30 ký tự: chữ, số, dấu chấm, gạch ngang hoặc gạch dưới.');return {name,key:name.toLowerCase()};}
@@ -46,8 +50,8 @@ export async function createAuth({database,send,now=Date.now}){
   async safetyHistory(id){return db.prepare('SELECT action,reason,actor,created_at AS createdAt FROM safety_events WHERE account=? ORDER BY created_at DESC,rowid DESC LIMIT 30').all(id);},
   async updateProfile(token,input){
    const account=await this.session(token);if(!account)throw Error('Vui lòng đăng nhập để thay đổi cài đặt.');
-   const name=String(input.name||'').trim(),address=String(input.address||'').trim(),phone=String(input.phone||'').replace(/[\s().-]/g,''),emailPending=String(input.emailPending||'').trim().toLowerCase(),photo=String(input.photo||'');
-   if(name.length<2||name.length>100||address.length>200||(phone&&!/^\+?\d{8,15}$/.test(phone))||(emailPending&&(emailPending.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(emailPending)))||(photo&&(!/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(photo)||photo.length>700000)))throw Error('Thông tin hồ sơ hoặc ảnh không hợp lệ.');
+   const name=String(input.name||'').trim(),address=String(input.address||'').trim(),phone=String(input.phone||'').replace(/[\s().-]/g,''),emailPending=String(input.emailPending||'').trim().toLowerCase(),photo=input.photo??account.photo??'';
+   if(name.length<2||name.length>100||address.length>200||(phone&&!/^\+?\d{8,15}$/.test(phone))||(emailPending&&(emailPending.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(emailPending)))||!isProfilePhoto(photo))throw Error('Thông tin hồ sơ hoặc ảnh không hợp lệ.');
    await db.transaction(async tx=>{
     if(account.accountType==='nickname'){const n=nickname(name),existing=await tx.prepare('SELECT id FROM nicknames WHERE key=?').get(n.key);if(existing&&existing.id!==account.id)throw Error('Biệt danh này đã được sử dụng.');await tx.prepare('UPDATE nicknames SET nickname=?,key=? WHERE id=?').run(n.name,n.key,account.id);}
     else{const row=await tx.prepare('SELECT details FROM accounts WHERE id=?').get(account.id),details=JSON.parse(row.details);details.name=name;details.phone=phone;await tx.prepare('UPDATE accounts SET details=? WHERE id=?').run(JSON.stringify(details),account.id);}
@@ -56,8 +60,9 @@ export async function createAuth({database,send,now=Date.now}){
   },
   async nicknameSignup(input){
    await clean();const {name,key}=nickname(input.nickname);if(typeof input.password!=='string'||input.password.length<8||input.password.length>128)throw Error('Mật khẩu phải có 8–128 ký tự.');
+   const photo=input.photo??'';if(!isProfilePhoto(photo))throw Error('Ảnh đại diện không hợp lệ.');
    const salt=randomBytes(24).toString('hex'),id=randomBytes(20).toString('hex'),digest=scryptSync(input.password,salt,64).toString('hex');
-   return db.transaction(async tx=>{if(await tx.prepare('SELECT id FROM nicknames WHERE key=?').get(key))throw Error('Biệt danh này đã được sử dụng. Vui lòng chọn tên khác.');await tx.prepare('INSERT INTO nicknames VALUES (?,?,?,?,?)').run(id,name,key,salt,digest);return makeSession(await nickUser({id,nickname:name},tx),tx);});
+   return db.transaction(async tx=>{if(await tx.prepare('SELECT id FROM nicknames WHERE key=?').get(key))throw Error('Biệt danh này đã được sử dụng. Vui lòng chọn tên khác.');await tx.prepare('INSERT INTO nicknames VALUES (?,?,?,?,?)').run(id,name,key,salt,digest);await saveSignupPhoto(tx,id,photo);return makeSession(await nickUser({id,nickname:name},tx),tx);});
   },
   async nicknameLogin(input){
    await clean();const {key}=nickname(input.nickname);
@@ -86,7 +91,7 @@ export async function createAuth({database,send,now=Date.now}){
    if(!validEmail(email))throw Error('Địa chỉ email không hợp lệ.');
    if(!['signup','login','password'].includes(input.purpose))throw Error('Yêu cầu không hợp lệ.');
    const existing=await db.prepare('SELECT * FROM accounts WHERE email=?').get(email);let details;
-   if(input.purpose==='signup'){const age=Number(input.age),name=String(input.name||'').trim(),phone=String(input.phone||'').replace(/[\s().-]/g,'');if(name.length<2||name.length>100||!['male','female','other','undisclosed'].includes(input.gender)||!Number.isInteger(age)||age<1||age>120||!/^\+?\d{8,15}$/.test(phone))throw Error('Vui lòng kiểm tra tên thật, giới tính, tuổi và số điện thoại.');details={name,gender:input.gender,age,phone,role:input.role==='Bros'?'Bros':'Broke'};}
+   if(input.purpose==='signup'){const age=Number(input.age),name=String(input.name||'').trim(),phone=String(input.phone||'').replace(/[\s().-]/g,'');if(name.length<2||name.length>100||!['male','female','other','undisclosed'].includes(input.gender)||!Number.isInteger(age)||age<1||age>120||!/^\+?\d{8,15}$/.test(phone))throw Error('Vui lòng kiểm tra tên thật, giới tính, tuổi và số điện thoại.');const photo=input.photo??'';if(!isProfilePhoto(photo))throw Error('Ảnh đại diện không hợp lệ.');details={name,gender:input.gender,age,phone,role:input.role==='Bros'?'Bros':'Broke',photo};}
    if(input.purpose==='password')details={setPassword:true};
    if(!await consumeLimit(db,'email:'+email,{now:now(),windowMs:3600000,maximum:5,cooldownMs:60000}))throw Error('Vui lòng đợi 60 giây trước khi yêu cầu mã mới hoặc thử lại sau một giờ.');
    const id=randomBytes(24).toString('hex'),salt=randomBytes(24).toString('hex'),code=String(randomInt(100000,1000000)),valid=input.purpose==='signup'||Boolean(existing);
@@ -115,7 +120,7 @@ export async function createAuth({database,send,now=Date.now}){
      await tx.prepare('DELETE FROM sessions WHERE account=?').run(row.id);
      await tx.prepare('DELETE FROM rate_windows WHERE key=?').run('email-login:'+p.email);
     }
-    if(!row){const accountId=randomBytes(20).toString('hex');await tx.prepare('INSERT INTO accounts VALUES (?,?,?)').run(accountId,p.email,p.details);row=await tx.prepare('SELECT * FROM accounts WHERE id=?').get(accountId);}
+    if(!row){const accountId=randomBytes(20).toString('hex');const {photo,...details}=JSON.parse(p.details);await tx.prepare('INSERT INTO accounts VALUES (?,?,?)').run(accountId,p.email,JSON.stringify(details));await saveSignupPhoto(tx,accountId,photo);row=await tx.prepare('SELECT * FROM accounts WHERE id=?').get(accountId);}
     try{return {result:await makeSession(await user(row,tx),tx)};}catch(error){if(error.status===403)return {error:error.message,status:403};throw error;}
    });if(outcome.error)throw Object.assign(Error(outcome.error),{status:outcome.status||400});return outcome.result;
   },
