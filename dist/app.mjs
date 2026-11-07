@@ -1,3 +1,4 @@
+import './debt-rate-estimate.mjs';
 import {categoryLabel} from './story-categories.mjs';
 import {localizeSample} from './sample-stories.mjs';
 import {t, translateError} from './i18n.mjs';

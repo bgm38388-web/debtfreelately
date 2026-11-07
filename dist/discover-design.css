@@ -139,3 +139,7 @@
   .discover-carousel-footer { margin: 3px 0; gap: 8px; }
   .discover-carousel-footer button { width: 44px; height: 44px; }
 }
+
+@media(max-width:620px){
+ .discover-layout .discovery-photo,.discover-layout.is-multi .discovery-photo{min-height:125px}
+}
