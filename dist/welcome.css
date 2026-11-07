@@ -16,11 +16,11 @@ body.onboarding>aside,body.onboarding>.main{display:none}
 .role-bro .role-symbol{background:#d7e3c2;border-color:#cad8b2}
 .role-card strong{font-size:32px;letter-spacing:-1px;font-weight:600;margin-bottom:8px;line-height:1.2}
 .role-caption{color:#7a8171;font-size:13px}
-.role-arrow{position:absolute;right:26px;bottom:29px;font-size:23px;color:#778b5c}
+
 .welcome-hint{font-size:11px;color:#8a907f;margin:27px 0 0}
 .welcome-footer{position:absolute;bottom:22px;width:calc(100% - 56px);max-width:1000px;display:flex;justify-content:space-between;gap:20px;color:#929788;font-size:9px;border-top:1px solid #e2e5da;padding-top:18px}
 .choose-role{font-size:10px;border:1px solid #dce0d2;border-radius:7px;padding:9px 12px;background:transparent;white-space:nowrap}
-@media(max-width:620px){#welcome{padding:32px 22px 76px}.welcome-brand{font-size:26px}.welcome-brand img{width:96px;height:96px}.welcome-content{padding:35px 0 0}.welcome-kicker{font-size:7px;letter-spacing:1.8px}#welcome h1{font-size:29px;letter-spacing:-1px;margin-bottom:28px}.role-options{gap:12px}.role-card{padding:22px 18px;min-height:200px;border-radius:16px}.role-card strong{font-size:28px}.role-symbol{width:43px;height:43px;margin-bottom:20px}.role-caption{font-size:11px}.role-arrow{right:15px;bottom:16px;font-size:19px}.welcome-footer{font-size:7px;width:calc(100% - 44px)}.choose-role{padding:8px;font-size:8px}header>div{gap:6px}header .header-brand{width:115px}header .dark{font-size:8px;padding:10px 8px}}
+@media(max-width:620px){#welcome{padding:32px 22px 76px}.welcome-brand{font-size:26px}.welcome-brand img{width:96px;height:96px}.welcome-content{padding:35px 0 0}.welcome-kicker{font-size:7px;letter-spacing:1.8px}#welcome h1{font-size:29px;letter-spacing:-1px;margin-bottom:28px}.role-options{gap:12px}.role-card{padding:22px 18px;min-height:200px;border-radius:16px}.role-card strong{font-size:28px}.role-symbol{width:43px;height:43px;margin-bottom:20px}.role-caption{font-size:11px}.welcome-footer{font-size:7px;width:calc(100% - 44px)}.choose-role{padding:8px;font-size:8px}header>div{gap:6px}header .header-brand{width:115px}header .dark{font-size:8px;padding:10px 8px}}
 @media(prefers-reduced-motion:reduce){.role-card{transition:none}}
 .welcome-login{display:grid;gap:10px;width:min(100%,360px);margin:22px auto 0;padding:18px 20px;border:1px solid #dce0d2;border-radius:16px;background:#fffef9;color:#303d2b;text-align:left}
 .welcome-login h2{font-size:16px;margin:0 0 4px}
@@ -37,7 +37,27 @@ body.onboarding>aside,body.onboarding>.main{display:none}
 .welcome-login :focus-visible{outline:2px solid #49623b;outline-offset:2px}
 @media(max-width:620px){.welcome-footer{flex-wrap:wrap;justify-content:center;gap:8px 16px}}
 
-.welcome-login-disclosure{margin:22px auto 0}
-.welcome-login-disclosure summary{width:fit-content;margin:auto;padding:9px 16px;border:1px solid #c3cbbb;border-radius:8px;color:#35492e;font-size:13px;font-weight:600;cursor:pointer}
-.welcome-login-disclosure summary:focus-visible{outline:2px solid #49623b;outline-offset:2px}
-.welcome-login-disclosure .welcome-login{margin-top:12px}
+.role-symbol img{width:32px;height:32px;object-fit:contain}
+
+.welcome-account {
+  width: min(100%, 360px);
+  margin: 12px auto 0;
+}
+
+.welcome-account > summary {
+  width: fit-content;
+  margin-inline: auto;
+  padding: 7px 8px;
+  color: #35492e;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.welcome-account > summary:focus-visible {
+  outline: 2px solid #49623b;
+  outline-offset: 2px;
+}
+
+.welcome-account .welcome-login { margin-top: 6px; }

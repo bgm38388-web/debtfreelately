@@ -1,8 +1,8 @@
 export const profilePhotoPresets = [
- {id:'sprout',label:'Mầm cây'},
- {id:'star',label:'Ngôi sao'},
- {id:'heart',label:'Trái tim'},
- {id:'sun',label:'Mặt trời'},
+ {id:'sprout',label:['Sprout','Mầm cây','새싹']},
+ {id:'star',label:['Star','Ngôi sao','별']},
+ {id:'heart',label:['Heart','Trái tim','하트']},
+ {id:'sun',label:['Sun','Mặt trời','태양']},
 ].map(preset=>({...preset,src:`/assets/avatar-${preset.id}.svg`}));
 
 export const profilePhotoTypes = ['image/png','image/jpeg','image/webp'];

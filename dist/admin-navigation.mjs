@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs';
 let link;
 let check = 0;
 
@@ -7,7 +8,7 @@ export async function refreshAdminNavigation() {
     if (!footer) return;
     link = document.createElement('a');
     link.href = '/admin';
-    link.textContent = 'Quản trị';
+    link.textContent = t("Admin","Quản trị","관리자");
     link.hidden = true;
     footer.insertBefore(link, footer.lastElementChild);
   }

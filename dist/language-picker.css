@@ -1,0 +1,19 @@
+.app-language-picker {
+  position: fixed;
+  right: 1rem;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 100;
+  width: auto;
+  min-height: 2.5rem;
+  padding: .35rem .65rem;
+  border: 1px solid #c0cbb7;
+  border-radius: .65rem;
+  color: #263a27;
+  background: #fffef9;
+  font: 600 .875rem/1.25 system-ui, sans-serif;
+}
+
+.app-language-picker:focus-visible {
+  outline: 2px solid #47673d;
+  outline-offset: 2px;
+}

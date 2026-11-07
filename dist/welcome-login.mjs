@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs';
 import {authRequest} from './registration.mjs';
 
 export function initWelcomeLogin(onLogin) {
@@ -23,9 +24,9 @@ export function initWelcomeLogin(onLogin) {
     mode = next;
     const login = mode === 'login';
     const verify = mode === 'verify';
-    title.textContent = {login: 'Đã có tài khoản?', request: 'Quên mật khẩu?', verify: 'Đặt mật khẩu mới'}[mode];
-    submit.textContent = {login: 'Đăng nhập', request: 'Gửi mã qua email', verify: 'Lưu mật khẩu và đăng nhập'}[mode];
-    toggle.textContent = login ? 'Quên mật khẩu?' : 'Quay lại đăng nhập';
+    title.textContent = {login: t("Already have an account?", "Đã có tài khoản?", "이미 계정이 있으신가요?"), request: t("Forgot your password?", "Quên mật khẩu?", "비밀번호를 잊으셨나요?"), verify: t("Set a new password", "Đặt mật khẩu mới", "새 비밀번호 설정")}[mode];
+    submit.textContent = {login: t("Sign in", "Đăng nhập", "로그인"), request: t("Send code by email", "Gửi mã qua email", "이메일로 코드 보내기"), verify: t("Save password and sign in", "Lưu mật khẩu và đăng nhập", "비밀번호를 저장하고 로그인")}[mode];
+    toggle.textContent = login ? t("Forgot your password?", "Quên mật khẩu?", "비밀번호를 잊으셨나요?") : t("Back to sign-in", "Quay lại đăng nhập", "로그인으로 돌아가기");
     email.readOnly = verify;
     codeField.hidden = code.disabled = !verify;
     code.required = verify;
@@ -33,13 +34,13 @@ export function initWelcomeLogin(onLogin) {
     password.required = !password.disabled;
     password.autocomplete = login ? 'current-password' : 'new-password';
     password.minLength = verify ? 8 : 0;
-    passwordLabel.textContent = verify ? 'Mật khẩu mới (ít nhất 8 ký tự)' : 'Mật khẩu';
+    passwordLabel.textContent = verify ? t("New password (at least 8 characters)", "Mật khẩu mới (ít nhất 8 ký tự)", "새 비밀번호 (8자 이상)") : t("Password", "Mật khẩu", "비밀번호");
     code.value = password.value = '';
     setMessage(error, '');
     setMessage(status, {
       login: '',
-      request: 'Nhập email đã đăng ký để nhận mã xác nhận.',
-      verify: 'Nếu email đã đăng ký, hãy kiểm tra hộp thư và nhập mã 6 chữ số trong vòng 10 phút.',
+      request: t("Enter your registered email address to receive a verification code.", "Nhập email đã đăng ký để nhận mã xác nhận.", "등록한 이메일 주소를 입력하여 인증 코드를 받으세요."),
+      verify: t("If this address is registered, check your inbox and enter the six-digit code within 10 minutes.", "Nếu email đã đăng ký, hãy kiểm tra hộp thư và nhập mã 6 chữ số trong vòng 10 phút.", "등록된 이메일 주소라면 받은편지함을 확인하고 10분 안에 6자리 코드를 입력해 주세요."),
     }[mode]);
   }
 
@@ -69,6 +70,7 @@ export function initWelcomeLogin(onLogin) {
       challenge = undefined;
       form.reset();
       show('login');
+      form.closest('details').open = false;
       if (document.body.classList.contains('onboarding')) onLogin(user);
     } catch (failure) {
       setMessage(error, failure.message);

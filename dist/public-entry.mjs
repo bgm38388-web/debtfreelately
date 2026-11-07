@@ -1,3 +1,4 @@
+import {language,t} from './i18n.mjs';
 import {validGoogleConsent} from './advertising-consent.mjs';
 import {landingHTML} from './public-layout.mjs';
 import {initHowItWorks} from './how-it-works.mjs';
@@ -5,9 +6,25 @@ import {initAdvertising} from './advertising-public.mjs';
 // Dedicated public document: no app bootstrap, private API or browser storage.
 const isInfo=/\/(privacy|transparency|community-safety|about)\.html$/.test(location.pathname);
 if(!isInfo)document.body.insertAdjacentHTML('afterbegin',landingHTML);
+const lang=language();
+const includeLanguage=lang!=='en'||new URL(location.href).searchParams.has('lang');
+if(!isInfo&&includeLanguage){
+ for(const link of document.querySelectorAll('a[href="/"], a[href$=".html"]')){
+  const target=new URL(link.href);
+  if(target.origin!==location.origin)continue;
+  target.searchParams.set('lang',lang);
+  link.href=target.href;
+ }
+}
 let config;try{const r=await fetch('/api/ads/config',{credentials:'omit',cache:'no-store'});if(r.ok)config=await r.json();}catch{}
 let settings=config?.settings||{};let canonical;try{const u=new URL(config?.canonicalOrigin||settings.canonicalOrigin);if(u.protocol==='https:'&&u.origin!==location.origin)canonical=u.origin;}catch{}
-const join=role=>{if(canonical)location.assign(canonical+'/?role='+encodeURIComponent(role));};
+const join=role=>{
+ if(!canonical)return;
+ const target=new URL('/',canonical);
+ target.searchParams.set('role',role);
+ target.searchParams.set('lang',lang);
+ location.assign(target.href);
+};
 if(!isInfo){initHowItWorks({Broke:()=>join('Broke'),Bros:()=>join('Bros')});document.querySelectorAll('[data-role]').forEach(b=>{b.disabled=!canonical;b.addEventListener('click',()=>join(b.dataset.role));});}
 else document.body.dataset.adPage='info';
 // Direct delivery is first-party; canonical documents never execute the Google path.
@@ -25,7 +42,7 @@ async function loadGoogle(){
  loading=true;const generation=navigation;attemptedNavigation=generation;
  try{const page=isInfo?'info':location.hash==='#how-it-works'?'how-it-works':'home';const zone=page==='home'?'home-bottom':page==='how-it-works'?'how-it-works-banner':'footer-banner';const r=await fetch('/api/ads/delivery',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({page,zone,device:matchMedia('(max-width:620px)').matches?'mobile':'desktop',seen:{}})});if(!r.ok)return;const delivery=await r.json();if(delivery?.ad?.source!=='adsense'||!/^\d{6,20}$/.test(delivery.ad.unitId||'')||generation!==navigation||!consent||!enabled())return;
  const target=page==='home'?document.querySelector('.welcome-hint'):page==='how-it-works'?document.querySelector('.hiw-trust'):document.querySelector('main');if(!target)return;
- const section=document.createElement('section');section.className='ad-zone';section.dataset.googleAdZone=zone;const label=document.createElement('small');label.className='ad-label';label.textContent='Quảng cáo';const ins=document.createElement('ins');ins.className='adsbygoogle';ins.style.display='block';ins.dataset.adClient=settings.publisherId;ins.dataset.adSlot=delivery.ad.unitId;ins.dataset.adFormat='auto';ins.dataset.fullWidthResponsive='true';section.append(label,ins);target.after(section);const nofill=new MutationObserver(()=>{if(ins.dataset.adStatus==='unfilled'){section.remove();nofill.disconnect();}});nofill.observe(ins,{attributes:true,attributeFilter:['data-ad-status']});
+ const section=document.createElement('section');section.className='ad-zone';section.dataset.googleAdZone=zone;const label=document.createElement('small');label.className='ad-label';label.textContent=t('Advertisement','Quảng cáo','광고');const ins=document.createElement('ins');ins.className='adsbygoogle';ins.style.display='block';ins.dataset.adClient=settings.publisherId;ins.dataset.adSlot=delivery.ad.unitId;ins.dataset.adFormat='auto';ins.dataset.fullWidthResponsive='true';section.append(label,ins);target.after(section);const nofill=new MutationObserver(()=>{if(ins.dataset.adStatus==='unfilled'){section.remove();nofill.disconnect();}});nofill.observe(ins,{attributes:true,attributeFilter:['data-ad-status']});
  try{await scriptReady();if(generation===navigation&&consent&&enabled()&&section.isConnected)(window.adsbygoogle=window.adsbygoogle||[]).push({});else section.remove();}catch{section.remove();}
  }catch{}finally{loading=false;if(generation!==navigation)loadGoogle();}
 }
