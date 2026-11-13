@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createAuth} from './auth.mjs';
 
-const person={purpose:'signup',name:'Cloud Test',gender:'other',age:25,phone:'+84912345678',email:'cloud@example.com'};
+const person={purpose:'signup',acceptedPolicies:'yes',name:'Cloud Test',gender:'other',age:25,phone:'+84912345678',email:'cloud@example.com'};
 test('an OTP expiring while verification is in progress cannot create a session',async t=>{
  let clock=1000000,step=0,code;
  const auth=await createAuth({database:':memory:',now:()=>{clock+=step;return clock;},send:async mail=>{code=mail.code;}});
@@ -38,7 +38,7 @@ test('resend cooldown and password lockout are shared between instances',async t
  const s=await instances(t);
  await s.a.request(person);
  await assert.rejects(s.b.request(person),/60/);
- await s.a.nicknameSignup({nickname:'SharedBros',password:'a-secure-test-password'});
+ await s.a.nicknameSignup({acceptedPolicies:'yes',nickname:'SharedBros',password:'a-secure-test-password'});
  for(let i=0;i<5;i++)await assert.rejects(async()=>s.a.nicknameLogin({nickname:'SharedBros',password:'wrong'}));
  await assert.rejects(async()=>s.b.nicknameLogin({nickname:'SharedBros',password:'a-secure-test-password'}),/15/);
 });

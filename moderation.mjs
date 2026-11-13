@@ -20,6 +20,11 @@ export async function createModeration({database,adminEmails=[],now=()=>new Date
  function record(row){return {id:row.id,ownerId:row.owner,createdAt:row.created_at,status:row.status,debts:JSON.parse(row.debts),privacy:JSON.parse(row.privacy),identity:JSON.parse(row.identity),reviewedAt:row.reviewed_at,reason:row.reason};}
  return {
  isAdmin,isOwner,
+ async contributionDebt(id,index){
+  const row=await db.prepare("SELECT owner,debts FROM debt_submissions WHERE id=? AND status='approved'").get(id);
+  const debt=row&&JSON.parse(row.debts)[index];
+  return debt?{ownerId:row.owner,title:debt.title}:null;
+ },
  async reviewData(user){(await admin(user));return (await db.prepare('SELECT * FROM debt_submissions ORDER BY created_at DESC').all()).map(record);},
  async adminMembers(user){owner(user);return [...allowed].map(email=>({email,role:'owner'})).concat((await db.prepare('SELECT email,granted_at AS grantedAt FROM admin_members ORDER BY granted_at DESC,email').all()).filter(row=>!allowed.has(row.email)).map(row=>({...row,role:'admin'})));},
  async addAdmin(user,value){owner(user);const email=emailValue(value);if(allowed.has(email)||(await db.prepare('SELECT email FROM admin_members WHERE email=?').get(email)))throw Object.assign(Error('Email này đã có quyền admin.'),{status:409});(await db.prepare('INSERT INTO admin_members VALUES (?,?,?)').run(email,user.id,now()));return this.adminMembers(user);},

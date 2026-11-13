@@ -1,25 +1,33 @@
-import {readRates} from './exchange-rates.mjs';
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {fraudSignals} from './fraud.mjs';
+import {createContributionRoutes} from './contributions-http.mjs';
 import {createAdvertisingRoutes} from './advertising-http.mjs';
 import {createRuntime} from './runtime.mjs';
-const root=path.resolve(import.meta.dirname,'dist');
-export function createRequestHandler({auth,moderation,advertising,adStorage,origin='http://127.0.0.1:4173',env=process.env}){
+import {appPaths} from './dist/app-routes.mjs';
+import {SESSION_MAX_AGE_SECONDS} from './auth.mjs';
+const root=path.resolve(import.meta.dirname ?? process.cwd(),'dist');
+const routes=Object.fromEntries(Object.values(appPaths).map(route=>[route,'/index.html']));
+Object.assign(routes,{'/admin':'/admin.html','/my-cards':'/my-cards.html'});
+export function createRequestHandler({auth,moderation,advertising,adStorage,contributions,paypal,origin='http://127.0.0.1:4173',env=process.env}){
 const adsRoute=createAdvertisingRoutes({auth,moderation,advertising,adStorage,origin,env});
 const secure=new URL(origin).protocol==='https:';
-const cookie=token=>`dfl_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${token?86400:0}${secure?'; Secure':''}`;
+const cookie=token=>`dfl_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${token?SESSION_MAX_AGE_SECONDS:0}${secure?'; Secure':''}`;
 const token=req=>(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('dfl_session='))?.slice(12);
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req,max=8192){if(req.body!==undefined){const raw=typeof req.body==='string'||Buffer.isBuffer(req.body)?req.body:JSON.stringify(req.body);if(Buffer.byteLength(raw)>max)throw Error('Yêu cầu quá dài.');return JSON.parse(raw.toString());}const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw Error('Yêu cầu quá dài.');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
-return async(req,res)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');try{if(await adsRoute(req,res))return;const pathname=decodeURIComponent(new URL(req.url,origin).pathname);if(pathname.startsWith('/api/')){
+const contributionRoute=createContributionRoutes({contributions,paypal,auth,moderation,origin,token,json,body});
+return async(req,res)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');try{if(await adsRoute(req,res))return;const pathname=decodeURIComponent(new URL(req.url,origin).pathname);if(await contributionRoute(req,res,pathname))return;if(pathname.startsWith('/api/')){
 if(req.method==='GET'&&pathname==='/api/auth/config')return json(res,200,{emailConfigured:Boolean(process.env.RESEND_API_KEY&&process.env.AUTH_FROM_EMAIL)});
-if(req.method==='GET'&&pathname==='/api/auth/me'){const user=(await auth.session(token(req)));return json(res,user?200:401,user?{user:{...user,isAdmin:(await moderation.isAdmin(user))}}:{error:'Vui lòng đăng nhập và xác minh email.'});}
-if(req.method==='GET'&&pathname==='/api/exchange-rates'){
- try{return json(res,200,await readRates());}
- catch{return json(res,503,{error:'Tạm thời chưa lấy được tỷ giá.'});}
+if(req.method==='GET'&&pathname==='/api/auth/me'){
+ const sessionToken=token(req);
+ const user=await auth.session(sessionToken,{renew:true});
+ if(!user)return json(res,401,{error:'Vui lòng đăng nhập và xác minh email.'});
+ const isAdmin=await moderation.isAdmin(user);
+ res.setHeader('Set-Cookie',cookie(sessionToken));
+ return json(res,200,{user:{...user,isAdmin}});
 }
 if(req.method==='GET'&&pathname==='/api/cards')return json(res,200,{cards:(await moderation.publicCards((await auth.blockedAccountIds())))});
 if(req.method==='GET'&&pathname==='/api/notifications'){const user=(await auth.session(token(req)));return user?json(res,200,{notifications:(await auth.notifications(user.id))}):json(res,401,{error:'Vui lòng đăng nhập.'});}
@@ -40,13 +48,13 @@ if(pathname==='/api/auth/email-login'){const result=await auth.emailLogin(await 
 if(pathname==='/api/auth/verify-code'){const d=await body(req),result=(await auth.verify(d.id,d.code,d.password));res.setHeader('Set-Cookie',cookie(result.token));return json(res,200,{user:result.user});}
 if(pathname==='/api/auth/profile'){if(!(await auth.session(token(req))))return json(res,401,{error:'Vui lòng đăng nhập.'});return json(res,200,{user:(await auth.updateProfile(token(req),await body(req,750000)))});}
 if(pathname==='/api/auth/logout'){(await auth.logout(token(req)));res.setHeader('Set-Cookie',cookie(''));return json(res,200,{ok:true});}return json(res,404,{error:'Không tìm thấy.'});}
-if(!['GET','HEAD'].includes(req.method)){res.writeHead(405).end();return;}const routes={'/':'/index.html','/admin':'/admin.html','/my-cards':'/my-cards.html'};const file=path.resolve(root,'.'+(routes[pathname]||pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}const data=await readFile(file);res.setHeader('Content-Type',({html:'text/html; charset=utf-8',css:'text/css',mjs:'text/javascript',svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg'})[file.split('.').pop()]||'application/octet-stream');res.setHeader('Cache-Control','no-cache');res.end(req.method==='HEAD'?undefined:data);
-}catch(error){if(req.url.startsWith('/api/'))json(res,error.status||400,{error:error instanceof SyntaxError?'Dữ liệu không hợp lệ.':error.message});else res.writeHead(404).end('Not found');}};
+if(!['GET','HEAD'].includes(req.method)){res.writeHead(405).end();return;}const file=path.resolve(root,'.'+(routes[pathname]||pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}const data=await readFile(file);res.setHeader('Content-Type',({html:'text/html; charset=utf-8',css:'text/css',mjs:'text/javascript',svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg'})[file.split('.').pop()]||'application/octet-stream');res.setHeader('Cache-Control','no-cache');res.end(req.method==='HEAD'?undefined:data);
+}catch(error){if(req.url.startsWith('/api/'))json(res,error.status||(req.url.startsWith('/api/contributions/')||req.url.startsWith('/api/admin/sandbox/')?error instanceof SyntaxError?400:500:400),{error:!error.status&&!(error instanceof SyntaxError)&&(req.url.startsWith('/api/contributions/')||req.url.startsWith('/api/admin/sandbox/'))?'Sandbox service error.':error instanceof SyntaxError?'Dữ liệu không hợp lệ.':error.message});else res.writeHead(404).end('Not found');}};
 }
 export function createAppServer(options){return http.createServer(createRequestHandler(options));}
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
  const services=await createRuntime(),origin=process.env.APP_ORIGIN||'http://127.0.0.1:4173';
  const server=createAppServer({...services,origin});
  server.listen(Number(process.env.PORT)||4173,'127.0.0.1',()=>console.log(origin));
- function shutdown(){server.close(async ()=>{await services.auth.close();await services.moderation.close();await services.advertising.close();process.exit(0);});}process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
+ function shutdown(){server.close(async ()=>{await services.auth.close();await services.moderation.close();await services.advertising.close();await services.contributions?.close();process.exit(0);});}process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
 }

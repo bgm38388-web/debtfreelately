@@ -10,7 +10,7 @@ test('advertising endpoints and visual preview enforce server-side admin and sam
  const server=createAppServer({auth,moderation,advertising,origin:'http://127.0.0.1'});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(async()=>{await new Promise(resolve=>server.close(resolve));await auth.close();await moderation.close();});
  const base='http://127.0.0.1:'+server.address().port;
- async function account(email){const pending=await auth.request({purpose:'signup',email,name:'API Test',gender:'other',age:25,phone:'+84912345678'});return auth.verify(pending.id,code);}
+ async function account(email){const pending=await auth.request({purpose:'signup',acceptedPolicies:'yes',email,name:'API Test',gender:'other',age:25,phone:'+84912345678'});return auth.verify(pending.id,code);}
  const member=await account('member@example.com'),admin=await account('admin@example.com');
  const headers=token=>({Cookie:'dfl_session='+token});
  assert.equal((await fetch(base+'/api/admin/ads')).status,401);
@@ -32,7 +32,7 @@ test('isolated public advertising origin never serves private app code or accoun
  assert.equal((await fetch(base+'/api/auth/me')).status,404);
  assert.equal((await fetch(base+'/api/admin/ads')).status,404);
  const response=await fetch(base+'/');assert.equal(response.status,200);const html=await response.text();assert.match(html,/public-entry\.mjs/);assert.ok(!html.includes('src="app.mjs"'));
- for(const module of ['public-entry.mjs','public-layout.mjs','how-it-works.mjs','advertising-public.mjs','advertising-consent.mjs'])assert.equal((await fetch(base+'/'+module,{redirect:'manual'})).status,200,module);
+ for(const asset of ['public-entry.mjs','public-layout.mjs','how-it-works.mjs','advertising-public.mjs','advertising-consent.mjs','i18n.mjs','language-picker.mjs','language-picker.css'])assert.equal((await fetch(base+'/'+asset,{redirect:'manual'})).status,200,asset);
  const privateCode=await fetch(base+'/app.mjs',{redirect:'manual'});assert.equal(privateCode.status,308);assert.equal(privateCode.headers.get('location'),'https://app.example.com/app.mjs');
  const deceptive=await fetch(base+'//evil.example/path',{redirect:'manual'});assert.equal(new URL(deceptive.headers.get('location')).origin,'https://app.example.com');
  const config=await fetch(base+'/api/ads/config');assert.equal(config.status,200);assert.equal((await config.json()).canonicalOrigin,'https://app.example.com');

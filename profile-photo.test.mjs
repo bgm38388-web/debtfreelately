@@ -8,7 +8,7 @@ test('signup photos are validated and become editable profile settings', async t
  let code;
  const auth=await createAuth({database:':memory:',send:async mail=>{code=mail.code;}});
  t.after(()=>auth.close());
- const person={name:'New Member',gender:'other',age:25,phone:'+84912345678',email:'new@example.com',purpose:'signup'};
+ const person={name:'New Member',gender:'other',age:25,phone:'+84912345678',email:'new@example.com',purpose:'signup',acceptedPolicies:'yes'};
  await assert.rejects(auth.request({...person,photo:'https://example.com/photo.svg'}),/ảnh/i);
  const challenge=await auth.request({...person,photo});
  const account=await auth.verify(challenge.id,code);
@@ -16,7 +16,7 @@ test('signup photos are validated and become editable profile settings', async t
  assert.equal((await auth.session(account.token)).photo,photo);
  assert.equal((await auth.updateProfile(account.token,{name:person.name,photo:uploaded})).photo,uploaded);
  assert.equal((await auth.updateProfile(account.token,{name:person.name,photo:''})).photo,'');
- const nickname=await auth.nicknameSignup({nickname:'NewBros',password:'a-test-password',photo:uploaded});
+ const nickname=await auth.nicknameSignup({acceptedPolicies:'yes',nickname:'NewBros',password:'a-test-password',photo:uploaded});
  assert.equal((await auth.session(nickname.token)).photo,uploaded);
  assert.equal((await auth.updateProfile(nickname.token,{name:'NewBros',photo})).photo,photo);
 });

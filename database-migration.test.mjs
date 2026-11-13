@@ -12,7 +12,7 @@ test('local migration preserves accounts and cards, is repeatable and does not t
  t.after(()=>rm(folder,{recursive:true,force:true}));
  const accountsDatabase=path.join(folder,'accounts.sqlite'),cardsDatabase=path.join(folder,'cards.sqlite'),targetDatabase=path.join(folder,'target.sqlite');
  const auth=await createAuth({database:accountsDatabase});
- const original=await auth.nicknameSignup({nickname:'MigratedBros',password:'secure-test-password'});
+ const original=await auth.nicknameSignup({acceptedPolicies:'yes',nickname:'MigratedBros',password:'secure-test-password'});
  const cards=await createModeration({database:cardsDatabase});
  const card=await cards.submit({id:original.user.id,name:'Member',emailVerified:true},{submissionId:crypto.randomUUID(),debts:[{title:'Debt',amount:10000,story:'Migration story'}],privacy:{}});
  await auth.close();await cards.close();

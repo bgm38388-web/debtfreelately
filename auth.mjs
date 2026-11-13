@@ -1,6 +1,7 @@
 import {isProfilePhoto} from './dist/profile-photo.mjs';
 import {randomBytes,randomInt,createHash,timingSafeEqual,scryptSync} from 'node:crypto';
 import {openDatabase,consumeLimit,rateSchema} from './database.mjs';
+export const SESSION_MAX_AGE_SECONDS=30*24*60*60;
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const normalizeEmail=value=>typeof value==='string'?value.trim().toLowerCase():'';
 const validEmail=email=>email.length<=254&&/^\S+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -28,7 +29,7 @@ export async function createAuth({database,send,now=Date.now}){
  }
  async function user(row,connection=db){if(!row)return null;const d=JSON.parse(row.details);return {id:row.id,email:row.email,name:d.name,age:d.age,gender:d.gender,nickname:'Broke_'+row.id.slice(0,6),role:d.role||'Broke',emailVerified:true,phone:d.phone,...await settings(row.id,connection)};}
  const nickUser=async(row,connection=db)=>({id:row.id,name:row.nickname,role:'Bros',accountType:'nickname',emailVerified:false,...await settings(row.id,connection)});
- async function makeSession(u,connection=db){await active(u.id,connection);const token=randomBytes(32).toString('hex');await connection.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token),u.id,now()+86400000);return {token,user:u};}
+ async function makeSession(u,connection=db){await active(u.id,connection);const token=randomBytes(32).toString('hex');await connection.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token),u.id,now()+SESSION_MAX_AGE_SECONDS*1000);return {token,user:u};}
  function nickname(value){const name=String(value||'').normalize('NFKC').trim();if(!/^[\p{L}\p{N}_.-]{3,30}$/u.test(name))throw Error('Biệt danh phải có 3–30 ký tự: chữ, số, dấu chấm, gạch ngang hoặc gạch dưới.');return {name,key:name.toLowerCase()};}
  async function clean(){await db.prepare('DELETE FROM sessions WHERE expires<=?').run(now());await db.prepare('DELETE FROM auth_challenges WHERE expires<=?').run(now());await db.prepare('DELETE FROM rate_windows WHERE last_at<?').run(now()-86400000);}
  return {
@@ -59,6 +60,7 @@ export async function createAuth({database,send,now=Date.now}){
    });return this.session(token);
   },
   async nicknameSignup(input){
+   if(input.acceptedPolicies!=='yes')throw Error('Please accept the Terms & Conditions and acknowledge the Privacy Policy.');
    await clean();const {name,key}=nickname(input.nickname);if(typeof input.password!=='string'||input.password.length<8||input.password.length>128)throw Error('Mật khẩu phải có 8–128 ký tự.');
    const photo=input.photo??'';if(!isProfilePhoto(photo))throw Error('Ảnh đại diện không hợp lệ.');
    const salt=randomBytes(24).toString('hex'),id=randomBytes(20).toString('hex'),digest=scryptSync(input.password,salt,64).toString('hex');
@@ -87,6 +89,7 @@ export async function createAuth({database,send,now=Date.now}){
    });
   },
   async request(input){
+   if(input.purpose==='signup'&&input.acceptedPolicies!=='yes')throw Error('Please accept the Terms & Conditions and acknowledge the Privacy Policy.');
    await clean();const email=normalizeEmail(input.email);
    if(!validEmail(email))throw Error('Địa chỉ email không hợp lệ.');
    if(!['signup','login','password'].includes(input.purpose))throw Error('Yêu cầu không hợp lệ.');
@@ -124,7 +127,23 @@ export async function createAuth({database,send,now=Date.now}){
     try{return {result:await makeSession(await user(row,tx),tx)};}catch(error){if(error.status===403)return {error:error.message,status:403};throw error;}
    });if(outcome.error)throw Object.assign(Error(outcome.error),{status:outcome.status||400});return outcome.result;
   },
-  async session(token){await clean();if(!token)return null;const session=await db.prepare('SELECT account FROM sessions WHERE hash=? AND expires>?').get(hash(token),now());if(!session)return null;await active(session.account);const account=await db.prepare('SELECT * FROM accounts WHERE id=?').get(session.account);if(account)return user(account);const nick=await db.prepare('SELECT * FROM nicknames WHERE id=?').get(session.account);return nick?nickUser(nick):null;},
+  async session(token,{renew=false}={}){
+   if(!token)return null;
+   await clean();
+   const sessionHash=hash(token);
+   const session=await db.prepare('SELECT account FROM sessions WHERE hash=? AND expires>?').get(sessionHash,now());
+   if(!session)return null;
+   await active(session.account);
+   const account=await db.prepare('SELECT * FROM accounts WHERE id=?').get(session.account);
+   const nickname=account?null:await db.prepare('SELECT * FROM nicknames WHERE id=?').get(session.account);
+   if(!account&&!nickname)return null;
+   if(renew){
+    const checkedAt=now();
+    const updated=await db.prepare('UPDATE sessions SET expires=? WHERE hash=? AND expires>?').run(checkedAt+SESSION_MAX_AGE_SECONDS*1000,sessionHash,checkedAt);
+    if(!updated.changes)return null;
+   }
+   return account?user(account):nickUser(nickname);
+  },
   async logout(token){if(token)await db.prepare('DELETE FROM sessions WHERE hash=?').run(hash(token));},
   allowRequest:(ip,{maximum=40}={})=>consumeLimit(db,'http:'+String(ip),{now:now(),windowMs:3600000,maximum}),
   close:()=>db.close()

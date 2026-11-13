@@ -1,0 +1,7 @@
+#legacy-page { display: contents; }
+
+body:is(.onboarding, .broke-mode, .bros-join-mode, .card-wizard-mode, .debts-mode, .messages-mode, .registration-mode)
+  #legacy-page > :is(aside, .main) { display: none; }
+
+body:is(.saved-page, .swipe-page) #legacy-page > aside { display: none; }
+body:is(.saved-page, .swipe-page) #legacy-page > .main { margin-left: 0; }

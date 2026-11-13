@@ -23,11 +23,11 @@ export function createAdvertisingRoutes({auth,moderation,advertising,adStorage,o
    if(pathname.startsWith('/api/')){json(res,404,{error:'Không tìm thấy.'});return true;}
    if(pathname==='/ads.txt'){const publisher=(await config()).settings.publisherId;res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});res.end(/^ca-pub-\d{16}$/.test(publisher||'')?'google.com, '+publisher.slice(3)+', DIRECT, f08c47fec0942fa0\n':'');return true;}
    const info=['/privacy.html','/transparency.html','/community-safety.html','/about.html'];
-   const modules=['/public-entry.mjs','/public-layout.mjs','/how-it-works.mjs','/advertising-public.mjs','/advertising-consent.mjs'];
-   const styles=['style','brand','welcome','how-it-works','discover-design','debt-card','advertising','privacy','about','transparency'].map(name=>'/'+name+'.css');
+   const modules=['/public-entry.mjs','/public-layout.mjs','/how-it-works.mjs','/advertising-public.mjs','/advertising-consent.mjs','/i18n.mjs','/language-picker.mjs'];
+   const styles=['style','brand','welcome','how-it-works','discover-design','debt-card','advertising','privacy','about','transparency','language-picker'].map(name=>'/'+name+'.css');
    let file=pathname==='/'||pathname==='/index.html'||pathname==='/public.html'?'/public.html':pathname;
    if(!['/public.html',...info,...modules,...styles].includes(file)&&!/^\/assets\/[\w.-]+\.(png|jpg|webp|svg)$/.test(file)){res.writeHead(308,{Location:new URL(canonicalOrigin).origin+pathname+url.search,'Cache-Control':'no-store'});res.end();return true;}
-   try{let content=await readFile(path.resolve(import.meta.dirname,'dist','.'+file));if(file==='/public.html'){const publisher=(await config()).settings.publisherId;if(/^ca-pub-\d{16}$/.test(publisher||''))content=Buffer.from(content.toString().replace('</head>','<meta name="google-adsense-account" content="'+publisher+'"></head>'));}const ext=file.split('.').at(-1);res.writeHead(200,{'Content-Type':({html:'text/html; charset=utf-8',mjs:'text/javascript',css:'text/css',svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',webp:'image/webp'})[ext]||'application/octet-stream','Cache-Control':'no-store'});res.end(content);}catch{json(res,404,{error:'Không tìm thấy.'});}return true;
+   try{let content=await readFile(path.resolve(import.meta.dirname ?? process.cwd(),'dist','.'+file));if(info.includes(file))content=Buffer.from(content.toString().replace('<body','<body data-public-language'));if(file==='/public.html'){const publisher=(await config()).settings.publisherId;if(/^ca-pub-\d{16}$/.test(publisher||''))content=Buffer.from(content.toString().replace('</head>','<meta name="google-adsense-account" content="'+publisher+'"></head>'));}const ext=file.split('.').at(-1);res.writeHead(200,{'Content-Type':({html:'text/html; charset=utf-8',mjs:'text/javascript',css:'text/css',svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',webp:'image/webp'})[ext]||'application/octet-stream','Cache-Control':'no-store'});res.end(content);}catch{json(res,404,{error:'Không tìm thấy.'});}return true;
   }
   if(!advertising)return false;
   const managed=pathname==='/ads-preview'||pathname==='/api/admin/ads'||pathname.startsWith('/api/admin/ads/');
@@ -36,7 +36,7 @@ export function createAdvertisingRoutes({auth,moderation,advertising,adStorage,o
   try{
    if(managed){
     const user=await admin(req);
-    if(pathname==='/ads-preview'&&req.method==='GET'){const page=await readFile(path.resolve(import.meta.dirname,'dist/ads-preview.html'));res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"frame-ancestors 'self'; object-src 'none'"});res.end(page);return true;}
+    if(pathname==='/ads-preview'&&req.method==='GET'){const page=await readFile(path.resolve(import.meta.dirname ?? process.cwd(),'dist/ads-preview.html'));res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"frame-ancestors 'self'; object-src 'none'"});res.end(page);return true;}
     if(pathname==='/api/admin/ads'&&req.method==='GET'){json(res,200,await advertising.snapshot(Object.fromEntries(['from','to','campaignId','zone','device'].map(key=>[key,url.searchParams.get(key)||undefined]))));return true;}
     if(pathname==='/api/admin/ads/preview'&&req.method==='GET'){json(res,200,{allowed:true,config:await advertising.snapshot()});return true;}
     await mutation(req);

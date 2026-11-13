@@ -2,3 +2,27 @@
 @media(max-width:900px){.registration-layout{gap:40px;margin:30px auto}.registration-intro h1{font-size:37px}.registration-card{padding:25px}.registration-card h2{font-size:23px}}
 @media(max-width:650px){.registration-top{padding:15px 20px}.registration-top>img{width:165px}.registration-top button{font-size:9px;padding:8px 12px}.registration-layout{display:block;margin:24px auto;padding:0 20px;max-width:510px}.registration-intro{padding:0 4px 22px}.registration-mark,.registration-intro>small,.registration-intro>p:not(.registration-eyebrow){display:none}.registration-intro h1{font-size:29px;margin:12px 0 17px;line-height:1.35}.registration-intro h1 br{display:none}.registration-steps{display:flex;gap:8px;align-items:center;margin:0}.registration-steps>div{gap:5px;font-size:7px;white-space:nowrap}.registration-steps b{width:21px;height:21px;font-size:8px}.registration-steps i{width:10px;height:1px;margin:0}.registration-card{padding:25px 22px;border-radius:20px}.registration-card h2{font-size:23px}.registration-subtitle{font-size:10px}.registration-card input,.registration-card select{font-size:12px;height:45px}.registration-card label{font-size:10px}.registration-card{margin-bottom:28px}}
 .registration-preview{display:block;width:100%;margin-top:22px;border:1px dashed #a9bb8e;border-radius:10px;padding:13px 12px;background:#edf3e2;color:#536b38;font-size:11px;line-height:1.7;cursor:pointer}.registration-preview:hover{background:#e2edcf}
+.registration-card label.signup-agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.registration-card .signup-agreement input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 2px 0 0;
+  accent-color: #526943;
+}
+
+.signup-agreement a {
+  color: inherit;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}

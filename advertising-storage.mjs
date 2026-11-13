@@ -22,7 +22,7 @@ export async function optimizeCreative(buffer,{mime,filename='',alt=''}={}){
  }catch(error){if(error.status)throw error;throw fail('Không thể đọc ảnh. Hãy tải JPG, PNG hoặc WebP hợp lệ.');}
 }
 
-export function createAdStorage({directory=path.resolve(import.meta.dirname,'.runtime/ad-media'),remote=Boolean(process.env.VERCEL||process.env.BLOB_READ_WRITE_TOKEN||process.env.BLOB_STORE_ID)}={}){
+export function createAdStorage({directory=path.resolve(import.meta.dirname ?? process.cwd(),'.runtime/ad-media'),remote=Boolean(process.env.VERCEL||process.env.BLOB_READ_WRITE_TOKEN||process.env.BLOB_STORE_ID)}={}){
  const validate=pathname=>{if(typeof pathname!=='string'||!/^ads\/[\da-f-]{36}\/(original\.(png|jpeg|webp)|\d{2,4}\.webp)$/.test(pathname))throw fail('Đường dẫn ảnh không hợp lệ.');return pathname;};
  const local=pathname=>{validate(pathname);const file=path.resolve(directory,pathname);if(!file.startsWith(path.resolve(directory)+path.sep))throw fail('Đường dẫn ảnh không hợp lệ.');return file;};
  async function store(pathname,buffer,contentType){if(remote){await put(pathname,buffer,{access:'private',addRandomSuffix:false,contentType,cacheControlMaxAge:60});}else{const file=local(pathname);await mkdir(path.dirname(file),{recursive:true});await writeFile(file,buffer);}return pathname;}

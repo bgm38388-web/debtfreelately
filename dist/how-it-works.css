@@ -1,6 +1,6 @@
 #how-it-works{display:none;color:#344b32;background:#f8f6ee;padding:24px 28px 56px;scroll-margin-top:24px}
-.onboarding #how-it-works:target{display:block}
-.onboarding:has(#how-it-works:target) #welcome{display:none}
+.onboarding #how-it-works:target,.onboarding[data-guide-open] #how-it-works{display:block}
+.onboarding:has(#how-it-works:target) #welcome,.onboarding[data-guide-open] #welcome{display:none}
 #how-it-works .hiw-home{color:#344b32;font-size:13px;text-decoration:none;white-space:nowrap}
 #how-it-works .hiw-home:hover{text-decoration:underline;text-underline-offset:4px}
 #how-it-works .hiw-shell{max-width:1040px;margin:0 auto;background:#f3f1e8;border:1px solid #ecebdf;border-radius:30px;padding:24px}

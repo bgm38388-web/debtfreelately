@@ -14,7 +14,7 @@ test('Vercel pre-parsed request bodies support signup and issue secure HttpOnly 
  const server=createServer(async(req,res)=>{const chunks=[];for await(const chunk of req)chunks.push(chunk);req.body=JSON.parse(Buffer.concat(chunks).toString());return handler(req,res);});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(async()=>{await new Promise(resolve=>server.close(resolve));await auth.close();await moderation.close();});
- const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/auth/nickname-signup',{method:'POST',headers:{Origin:'https://app.example.com','Content-Type':'application/json'},body:JSON.stringify({nickname:'VercelBros',password:'a-secure-test-password'})});
+ const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/auth/nickname-signup',{method:'POST',headers:{Origin:'https://app.example.com','Content-Type':'application/json'},body:JSON.stringify({acceptedPolicies:'yes',nickname:'VercelBros',password:'a-secure-test-password'})});
  assert.equal(response.status,200);
  assert.equal((await response.json()).user.name,'VercelBros');
  assert.match(response.headers.get('set-cookie'),/HttpOnly; SameSite=Strict/);

@@ -47,11 +47,12 @@ if (window.top === window.self) {
     option.lang = value;
     select.add(option);
   }
-  select.addEventListener('change', () => {
-    url.searchParams.set('lang', select.value);
+  function changeLanguage(event) {
+    const language = event.currentTarget.value;
+    url.searchParams.set('lang', language);
     if (!isolatedPublicPage) {
       try {
-        localStorage.setItem(preferenceKey, select.value);
+        localStorage.setItem(preferenceKey, language);
         url.searchParams.delete('lang');
       } catch {
         // Keep the selection in the URL.
@@ -59,6 +60,16 @@ if (window.top === window.self) {
     }
     if (url.href === location.href) location.reload();
     else location.assign(url);
-  });
+  }
+  select.addEventListener('change', changeLanguage);
   document.body.prepend(select);
+
+  const welcomeLanguage = document.querySelector('#welcome-language');
+  if (welcomeLanguage) {
+    const headerSelect = select.cloneNode(true);
+    headerSelect.value = locale;
+    headerSelect.setAttribute('aria-label', 'Language');
+    headerSelect.addEventListener('change', changeLanguage);
+    welcomeLanguage.append(headerSelect);
+  }
 }
