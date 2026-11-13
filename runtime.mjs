@@ -13,9 +13,19 @@ export function resolveOrigin(req,env=process.env){
  if(!origin)throw Object.assign(Error('Request host is not configured.'),{status:403});
  return origin;
 }
+export function runtimeDatabase(env){
+ const preview=env.VERCEL_ENV==='preview';
+ const url=preview?env.PREVIEW_TURSO_DATABASE_URL:env.TURSO_DATABASE_URL;
+ const authToken=preview?env.PREVIEW_TURSO_AUTH_TOKEN:env.TURSO_AUTH_TOKEN;
+ if(preview&&(!url||!authToken))throw Error('Separate Turso credentials are required in Preview.');
+ if(preview&&env.TURSO_DATABASE_URL&&new URL(url).hostname===new URL(env.TURSO_DATABASE_URL).hostname)
+  throw Error('Preview Turso must use a separate database host.');
+ if(preview&&authToken===env.TURSO_AUTH_TOKEN)throw Error('Preview Turso must use a database-scoped token.');
+ if(env.VERCEL&&(!url||!authToken))throw Error('Turso is required on Vercel.');
+ return url&&authToken?{url,authToken}:null;
+}
 export async function createRuntime(env=process.env){
- const remote=env.TURSO_DATABASE_URL&&env.TURSO_AUTH_TOKEN?{url:env.TURSO_DATABASE_URL,authToken:env.TURSO_AUTH_TOKEN}:null;
- if(env.VERCEL&&!remote)throw Error('Turso is required on Vercel.');
+ const remote=runtimeDatabase(env);
  const folder=path.resolve(env.RUNTIME_DIRECTORY||path.resolve(import.meta.dirname ?? process.cwd(),'.runtime'));
  if(!remote)await mkdir(folder,{recursive:true});
  const auth=await createAuth({database:remote||path.join(folder,'accounts.sqlite'),send:sendVerification});
