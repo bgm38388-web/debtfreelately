@@ -44,6 +44,7 @@ export function createContributionRoutes({contributions,paypal,auth,moderation,o
   if(req.method==='GET'){
    const params=new URL(req.url,origin).searchParams;
    switch(pathname){
+    case '/api/contributions/eligible-debts':return reply(200,{indexes:await contributions.eligibleDebts(user,params.get('cardId'))});
     case '/api/contributions/options':{
      const index=params.get('debtIndex');
      const result=await contributions.eligibility(user,{cardId:params.get('cardId'),debtIndex:index===null?NaN:Number(index)});

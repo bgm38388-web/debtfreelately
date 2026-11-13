@@ -21,7 +21,7 @@ function moneyMinor(amount,currency){
 function record(row){
  return {id:row.id,cardId:row.card_id,debtIndex:row.debt_index,title:row.title,orderId:row.order_id,captureId:row.capture_id,
   currency:row.currency,grossMinor:row.gross_minor,feeMinor:row.fee_minor,status:row.status,
-  disputeStatus:row.dispute_status,payoutStatus:row.payout_status,createdAt:row.created_at};
+  webhookConfirmed:Boolean(row.webhook_confirmed),disputeStatus:row.dispute_status,payoutStatus:row.payout_status,createdAt:row.created_at};
 }
 function requireBros(user){
  if(!user?.id)throw fail(401,'Sign in to use Sandbox Checkout.');
@@ -90,6 +90,17 @@ export async function createContributions({database,paypal,debt}){
  }
  return {
   clientId:paypal.clientId,
+  async eligibleDebts(user,cardId){
+   requireBros(user);
+   checkCase({cardId,debtIndex:0});
+   const verified=await db.prepare('SELECT debt_index,broke_id FROM sandbox_creditors WHERE card_id=? ORDER BY debt_index').all(cardId);
+   const indexes=[];
+   for(const row of verified){
+    const target=await debt(cardId,row.debt_index);
+    if(target?.ownerId===row.broke_id&&target.ownerId!==user.id)indexes.push(row.debt_index);
+   }
+   return indexes;
+  },
   async eligibility(user,input){requireBros(user);const target=await eligible(input);return {title:target.title,options};},
   async create(user,input){
    requireBros(user);
@@ -144,7 +155,11 @@ export async function createContributions({database,paypal,debt}){
        if(!row.capture_id||row.capture_id!==resource.id)throw fail(409,'Capture reconciliation pending.');
        await tx.prepare(`UPDATE sandbox_contributions SET status='reversed',payout_status=
         CASE WHEN payout_status='receipt_confirmed' THEN payout_status ELSE 'held' END WHERE id=?`).run(row.id);
-      }else await captureUpdate(tx,row,resource,captureEvents[type]);
+      }else{
+       const updated=await captureUpdate(tx,row,resource,captureEvents[type]);
+       if(type==='PAYMENT.CAPTURE.COMPLETED'&&updated.status==='completed')
+        await log(tx,'paypal',row.id,'capture_webhook_confirmed',id);
+      }
      }else if(orderId||resource.id)throw fail(409,'Capture reconciliation pending.');
     }
     if(type==='PAYMENT.CAPTURE.REFUNDED'&&resource.status==='COMPLETED'){
@@ -184,7 +199,7 @@ export async function createContributions({database,paypal,debt}){
   async history(user){
    if(!user?.id)throw fail(401,'Sign in to view contributions.');
    const column=user.role==='Bros'?'bros_id':'broke_id';
-   return (await db.prepare(`SELECT * FROM sandbox_contributions WHERE ${column}=? AND order_id IS NOT NULL ORDER BY created_at DESC LIMIT 100`).all(user.id)).map(record);
+   return (await db.prepare(`SELECT *, EXISTS(SELECT 1 FROM sandbox_audit WHERE subject=sandbox_contributions.id AND actor='paypal' AND action='capture_webhook_confirmed') AS webhook_confirmed FROM sandbox_contributions WHERE ${column}=? AND order_id IS NOT NULL ORDER BY created_at DESC LIMIT 100`).all(user.id)).map(record);
   },
   async verifyCreditor(actor,input){
    checkCase(input);

@@ -45,7 +45,7 @@ const labels={
 };
 function label(status){return labels[status]?.()||status;}
 function contributionStatus(row){
- const payment=label(row.status);
+ const payment=row.status==='completed'&&!row.webhookConfirmed?t('Capture recorded. Awaiting PayPal webhook confirmation.','Đã ghi nhận giao dịch. Đang chờ webhook PayPal xác nhận.','결제가 기록되었습니다. PayPal 웹훅 확인 대기 중입니다.'):label(row.status);
  const payout=row.payoutStatus==='failed'?t('Payout failed','Chi trả thất bại','지급 실패'):
   row.payoutStatus&&row.payoutStatus!=='unreviewed'?label(row.payoutStatus):'';
  return [payment,row.disputeStatus&&label(row.disputeStatus),payout].filter(Boolean).join(' · ');
@@ -55,12 +55,12 @@ function localCurrency(){
  return {AU:'AUD',US:'USD',GB:'GBP',CA:'CAD',NZ:'NZD',SG:'SGD',JP:'JPY',DE:'EUR',FR:'EUR',ES:'EUR',IT:'EUR',IE:'EUR',NL:'EUR'}[region]||'USD';
 }
 
-export async function openSandboxCheckout({cardId,debts,modal}){
+export async function openSandboxCheckout({cardId,debts,eligibleIndexes,modal}){
  modal(`<h2>PayPal Sandbox Checkout</h2><p>${t('Test money only. This does not repay debt.','Chỉ dùng tiền thử. Khoản nợ chưa được thanh toán.','테스트 결제이며 채무는 상환되지 않습니다.')}</p><div id="sandbox-checkout"></div>`);
  const root=document.querySelector('#sandbox-checkout');
  const debtLabel=element('label',t('Debt case','Khoản nợ','채무 항목'),root);
  const debtSelect=element('select',undefined,debtLabel);
- debts.forEach((debt,index)=>{const option=element('option',debt.title,debtSelect);option.value=index;});
+ for(const index of eligibleIndexes){const option=element('option',debts[index].title,debtSelect);option.value=index;}
  const form=element('div',undefined,root);
  const status=element('p',undefined,root);
  status.setAttribute('role','status');
@@ -109,7 +109,8 @@ export async function openSandboxCheckout({cardId,debts,modal}){
     async onApprove({orderId}){
      try{
       const row=await sandboxCall('contributions/capture',{orderId});
-      status.textContent=contributionStatus(row);
+      const history=await sandboxCall('contributions/history');
+      status.textContent=contributionStatus(history.contributions.find(item=>item.id===row.id)||row);
      }catch{
       status.textContent=t('Could not confirm capture. Open Sandbox contribution history to check or retry this order.','Chưa xác nhận được giao dịch. Mở lịch sử Sandbox để kiểm tra hoặc thử lại đơn này.','결제를 확인하지 못했습니다. 샌드박스 기록에서 이 주문을 확인하거나 다시 시도하세요.');
      }
